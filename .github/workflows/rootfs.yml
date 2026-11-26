@@ -7,13 +7,27 @@ name: Build RootFS
 on:
   workflow_dispatch:
     inputs:
+      distro:
+        description: 'Distribution (Debian or Ubuntu)'
+        type: choice
+        options:
+          - Debian
+          - Ubuntu
+        default: 'Debian'
+
       distro_suite:
-        description: 'Debian Version'
+        description: 'Debian Version (used when Distribution = Debian)'
         type: choice
         options:
           - trixie
           - forky
         default: 'trixie'
+
+      ubuntu_suite:
+        description: 'Ubuntu codename, 24.04+ (used when Distribution = Ubuntu): noble=24.04, oracular=24.10, plucky=25.04, questing=25.10, resolute=26.04'
+        type: string
+        required: false
+        default: 'noble'
 
       desktop:
         description: 'Desktop Environment (server = no DE)'
@@ -680,7 +694,34 @@ jobs:
               exit 1
             fi
           fi
+          if [[ "${{ inputs.distro }}" == "Ubuntu" && -z "${{ inputs.ubuntu_suite }}" ]]; then
+            echo "Error: ubuntu_suite is required when Distribution = Ubuntu"
+            exit 1
+          fi
           echo "✓ Arguments verified"
+
+      - name: "Resolve Distribution"
+        id: os
+        run: |
+          if [[ "${{ inputs.distro }}" == "Ubuntu" ]]; then
+            SUITE="${{ inputs.ubuntu_suite }}"
+            echo "suite=$SUITE" >> $GITHUB_OUTPUT
+            echo "mirror=http://ports.ubuntu.com/ubuntu-ports/" >> $GITHUB_OUTPUT
+            echo "components=main,universe,restricted,multiverse" >> $GITHUB_OUTPUT
+            echo "keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg" >> $GITHUB_OUTPUT
+            echo "denial_suite=noble" >> $GITHUB_OUTPUT
+            if [[ "$SUITE" != "noble" ]]; then
+              echo "::warning::Denial is only validated on Ubuntu 24.04 (noble); $SUITE uses the noble package suite as a best effort."
+            fi
+          else
+            SUITE="${{ inputs.distro_suite }}"
+            echo "suite=$SUITE" >> $GITHUB_OUTPUT
+            echo "mirror=http://deb.debian.org/debian/" >> $GITHUB_OUTPUT
+            echo "components=main,contrib,non-free-firmware" >> $GITHUB_OUTPUT
+            echo "keyring=" >> $GITHUB_OUTPUT
+            echo "denial_suite=trixie" >> $GITHUB_OUTPUT
+          fi
+          echo "✓ Distribution resolved: ${{ inputs.distro }} $SUITE"
 
       - name: "Parse Partition Label"
         id: partition
@@ -962,14 +1003,20 @@ jobs:
       # Debootstrap
       # ----------------------------------------------------------------
 
-      - name: "Run Debootstrap (${{ inputs.distro_suite }})"
+      - name: "Run Debootstrap (${{ inputs.distro }} ${{ steps.os.outputs.suite }})"
         run: |
-          sudo debootstrap \
-            --arch=arm64 \
-            --components=main,contrib,non-free-firmware \
-            "${{ inputs.distro_suite }}" \
-            "$ROOTFS_MOUNT" \
-            http://deb.debian.org/debian/
+          SUITE="${{ steps.os.outputs.suite }}"
+          KEYRING="${{ steps.os.outputs.keyring }}"
+          ARGS=(--arch=arm64 --components="${{ steps.os.outputs.components }}")
+          if [[ -n "$KEYRING" ]]; then
+            sudo apt-get install -y ubuntu-keyring >/dev/null 2>&1 || true
+            if [[ ! -e "/usr/share/debootstrap/scripts/$SUITE" ]]; then
+              echo "debootstrap has no script for '$SUITE'; falling back to the generic Ubuntu script"
+              sudo ln -sf gutsy "/usr/share/debootstrap/scripts/$SUITE"
+            fi
+            ARGS+=(--keyring="$KEYRING")
+          fi
+          sudo debootstrap "${ARGS[@]}" "$SUITE" "$ROOTFS_MOUNT" "${{ steps.os.outputs.mirror }}"
           echo "✓ Debootstrap complete"
 
       - name: "Mount Virtual File Systems"
@@ -999,7 +1046,6 @@ jobs:
             lm-sensors \
             wireless-regdb \
             net-tools \
-            qbootctl \
             libglib2.0-0 \
             libprotobuf-c1 \
             libqmi-glib5 \
@@ -1007,11 +1053,20 @@ jobs:
             libyaml-0-2 \
             libgudev-1.0-0 \
             libpolkit-gobject-1-0
+          # qbootctl is packaged on Debian and on Ubuntu 24.04+, but do not fail
+          # the build if a release stops shipping it (A/B slot switching then has
+          # to be done from a PC with fastboot or from TWRP).
+          sudo chroot "$ROOTFS_MOUNT" apt-get install -y qbootctl \
+            || echo "::warning::qbootctl is unavailable in this release; no A/B slot switcher will be preinstalled."
+          if [[ "${{ inputs.distro }}" == "Ubuntu" ]]; then
+            sudo chroot "$ROOTFS_MOUNT" apt-get install -y ubuntu-keyring || true
+          fi
           echo "✓ Base packages installed"
 
       - name: "Use Upstream Regulatory Database"
         run: |
-          sudo chroot "$ROOTFS_MOUNT" update-alternatives --set regulatory.db /lib/firmware/regulatory.db-upstream
+          sudo chroot "$ROOTFS_MOUNT" update-alternatives --set regulatory.db /lib/firmware/regulatory.db-upstream \
+            || echo "::warning::regulatory.db-upstream is not provided by this release; keeping the packaged database."
           echo "✓ Upstream regulatory database selected"
 
       - name: "Install Plymouth"
@@ -1139,9 +1194,19 @@ jobs:
         run: |
           sudo chroot "$ROOTFS_MOUNT" apt-get update
           sudo chroot "$ROOTFS_MOUNT" apt-get install -y \
-            gnome-shell gnome-session gnome-terminal \
-            gdm3 firefox-esr \
-            gnome-control-center
+            gnome-shell gnome-session gdm3 gnome-control-center
+          # Terminal and browser differ between distributions and releases:
+          # Ubuntu has no firefox-esr (Firefox is a snap) and newer releases may
+          # replace gnome-terminal with kgx/ptyxis, so those are best effort.
+          sudo chroot "$ROOTFS_MOUNT" apt-get install -y gnome-terminal \
+            || sudo chroot "$ROOTFS_MOUNT" apt-get install -y kgx \
+            || echo "::warning::no GNOME terminal package could be installed."
+          if [[ "${{ inputs.distro }}" == "Debian" ]]; then
+            sudo chroot "$ROOTFS_MOUNT" apt-get install -y firefox-esr \
+              || echo "::warning::firefox-esr is unavailable; install a browser manually."
+          else
+            echo "::notice::Ubuntu ships Firefox as a snap; no browser is preinstalled in this image."
+          fi
           echo "✓ GNOME installed"
 
       - name: "Install KDE Plasma"
@@ -1154,10 +1219,20 @@ jobs:
             PLASMA_PACKAGE="plasma-desktop"
           fi
           sudo chroot "$ROOTFS_MOUNT" apt-get install -y \
-            "$PLASMA_PACKAGE" plasma-workspace plasma-nm \
-            sddm konsole firefox-esr \
-            dolphin kate \
-            pipewire-alsa
+            "$PLASMA_PACKAGE" plasma-workspace plasma-nm sddm pipewire-alsa \
+            || echo "::warning::the full Plasma package set could not be installed; install the desktop manually."
+          # Optional applications vary by release (Ubuntu 24.04 ships Plasma 5.27),
+          # so each one is allowed to fail on its own.
+          for pkg in konsole dolphin kate; do
+            sudo chroot "$ROOTFS_MOUNT" apt-get install -y "$pkg" \
+              || echo "::warning::$pkg is unavailable in this release."
+          done
+          if [[ "${{ inputs.distro }}" == "Debian" ]]; then
+            sudo chroot "$ROOTFS_MOUNT" apt-get install -y firefox-esr \
+              || echo "::warning::firefox-esr is unavailable; install a browser manually."
+          else
+            echo "::notice::Ubuntu ships Firefox as a snap; no browser is preinstalled in this image."
+          fi
           echo "✓ KDE Plasma installed"
 
       - name: "Install KDE Plasma Plymouth Settings"
@@ -1165,7 +1240,8 @@ jobs:
         run: |
           sudo chroot "$ROOTFS_MOUNT" apt-get update
           sudo chroot "$ROOTFS_MOUNT" apt-get install -y \
-            kde-config-plymouth plymouth-theme-breeze
+            kde-config-plymouth plymouth-theme-breeze \
+            || echo "::warning::the KDE Plymouth theme is unavailable in this release."
           echo "✓ KDE Plasma Plymouth settings installed"
 
       # ----------------------------------------------------------------
@@ -1181,7 +1257,7 @@ jobs:
             curl -fsSL https://packages.denialwm.org/denial-repo-key.asc \
               -o /etc/apt/keyrings/denial.asc
             chmod 0644 /etc/apt/keyrings/denial.asc
-            echo "deb [signed-by=/etc/apt/keyrings/denial.asc] https://packages.denialwm.org/apt trixie main" \
+            echo "deb [signed-by=/etc/apt/keyrings/denial.asc] https://packages.denialwm.org/apt ${{ steps.os.outputs.denial_suite }} main" \
               > /etc/apt/sources.list.d/denial.list
             apt-get update
             apt-get install -y denial
@@ -1331,7 +1407,7 @@ jobs:
       - name: "Upload RootFS Image"
         uses: actions/upload-artifact@v7
         with:
-          name: rootfs-${{ inputs.distro_suite }}-${{ inputs.desktop }}-${{ steps.partition.outputs.label }}
+          name: rootfs-${{ steps.os.outputs.suite }}-${{ inputs.desktop }}-${{ steps.partition.outputs.label }}
           path: rootfs.img
           retention-days: 14
           if-no-files-found: error
@@ -1340,7 +1416,7 @@ jobs:
       - name: "Upload Boot Image"
         uses: actions/upload-artifact@v7
         with:
-          name: boot-${{ inputs.distro_suite }}-${{ inputs.desktop }}-${{ steps.partition.outputs.label }}
+          name: boot-${{ steps.os.outputs.suite }}-${{ inputs.desktop }}-${{ steps.partition.outputs.label }}
           path: boot.img
           retention-days: 14
           if-no-files-found: warn

@@ -63,15 +63,17 @@ When you trigger the **Build RootFS** workflow via `workflow_dispatch`, the foll
 
 | Parameter | Description | Options | Default |
 |-----------|-------------|---------|---------|
-| **Debian Version** | Debian version to install (Trixie = Debian 13, Forky = Debian 14) | `trixie` / `forky` | `trixie` |
-| **Desktop Environment** | Preinstalled desktop environment. Select `server` for a headless (no GUI) system. | `GNOME` / `KDE Plasma` / `server` | `KDE Plasma` |
+| **Distribution** | Operating system to build (both arm64). Ubuntu support starts at 24.04 (noble). | `Debian` / `Ubuntu` | `Debian` |
+| **Debian Version** | Debian version to install (Trixie = Debian 13, Forky = Debian 14). Used only when Distribution = `Debian`. | `trixie` / `forky` | `trixie` |
+| **Ubuntu Release** | Ubuntu codename, 24.04 and newer. Used only when Distribution = `Ubuntu`; arm64 packages come from `ports.ubuntu.com`. | `noble` (24.04) / `oracular` (24.10) / `plucky` (25.04) / `questing` (25.10) / `resolute` (26.04) / any newer codename | `noble` |
+| **Desktop Environment** | Preinstalled desktop environment. Select `server` for a headless (no GUI) system. | `GNOME` / `KDE Plasma` / `Denial` / `server` | `KDE Plasma` |
 | **Plasma Mobile** | Install `plasma-mobile` instead of `plasma-desktop` when Desktop Environment is `KDE Plasma`. | `true` / `false` | `false` |
 | **Autologin** | Whether the created user should be logged in automatically. | `true` / `false` | `true` |
 | **Username** | Username for the non-root user. | string | `username` |
 | **Password** | Password for the non-root user and `root`. Leave empty to use the repository secret `ROOTFS_PASSWORD`, then the default `password`. | string | *(empty)* |
 | **Hostname** | System hostname. | string | `xiaomi-sheng` |
 | **System language** | System locale for the generated root filesystem. Selecting `None (C.UTF-8)` keeps the default locale; selecting another option generates that locale together with `en_US.UTF-8` and sets it as the system default. | `None (C.UTF-8)` / `en_US.UTF-8` / `zh_CN.UTF-8` / `zh_TW.UTF-8` / `ja_JP.UTF-8` / `ko_KR.UTF-8` / `de_DE.UTF-8` / `fr_FR.UTF-8` / `es_ES.UTF-8` / `ru_RU.UTF-8` | `None (C.UTF-8)` |
-| **Boot mode** | Determines which partition Debian boots from. See the [Flashing](#flashing-to-your-device) section for details. | `single (userdata)` – use the entire `userdata` partition; <br> `dual (linux)` – use a dedicated `linux` partition (dual boot); <br> `custom` – use a custom partition name (must be specified below) | `dual (linux)` |
+| **Boot mode** | Determines which partition the OS boots from. See the [Flashing](#flashing-to-your-device) section for details. | `single (userdata)` – use the entire `userdata` partition; <br> `dual (linux)` – use a dedicated `linux` partition (dual boot); <br> `custom` – use a custom partition name (must be specified below) | `dual (linux)` |
 | **Quiet boot** | Enables a quieter boot flow with Plymouth splash support. For prebuilt kernels, this selects the `_plymouth.img` boot image; for custom kernels, it appends `quiet splash plymouth.ignore-serial-consoles fbcon=map:1` to the boot cmdline. This is ignored when Desktop Environment is set to `server`. | `true` / `false` | `true` |
 | **Custom partition** | Partition name to flash the rootfs to. **Required only when Boot mode is `custom`.** | any partition name (e.g. `debian`) | *(empty)* |
 | **Kernel source** | How to obtain the kernel image. **`prebuilt` is not available when Boot mode is `custom`.** | `prebuilt` – use a prebuilt kernel from [ianchb/sm8550-mainline](https://github.com/ianchb/sm8550-mainline); <br> `custom_build` – clone and compile a custom kernel from the repo specified below | `prebuilt` |
@@ -84,6 +86,9 @@ When you trigger the **Build RootFS** workflow via `workflow_dispatch`, the foll
 > **Notes**  
 > - **Password** for the configured user and `root` comes from the `Password` input when it is filled, otherwise from the repository secret `ROOTFS_PASSWORD`, otherwise it falls back to the insecure default value: `password`.  
 > - Prefer the `ROOTFS_PASSWORD` secret on public repositories: a `workflow_dispatch` input value is stored in the run's metadata and is only masked inside the job log. The input exists so forked copies can set a password without creating a secret.  
+> - **Ubuntu builds**: `Distribution = Ubuntu` builds any Ubuntu 24.04+ arm64 release from `http://ports.ubuntu.com/ubuntu-ports/`. Denial is validated by upstream only on Ubuntu 24.04 (noble); newer Ubuntu releases reuse the `noble` Denial packages as a best effort. Ubuntu has no `firefox-esr` (Firefox is a snap), so GNOME/KDE images come without a preinstalled browser, and occasional terminal renames (`kgx`/`ptyxis`) or missing optional KDE apps are handled with fallbacks and warnings.  
+> - **KDE on Ubuntu 24.04** is Plasma 5.27; Debian 13 ships Plasma 6.x.  
+> - `qbootctl` (A/B slot switcher) is installed when the release packages it; otherwise the build warns and slot switching must be done from a PC (`fastboot`) or TWRP.  
 > - If you choose **Boot mode = `custom`**, you **must** fill in the **Custom partition** field.  
 > - If you choose **Kernel source = `custom_build`**, you **must** provide the **Kernel Repo URL**, **Kernel Branch**, and **Kernel Config** fields.  
 ---

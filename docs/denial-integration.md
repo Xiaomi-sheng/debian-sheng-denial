@@ -21,6 +21,8 @@
 | Build | **GitHub Actions only** (`ubuntu-24.04-arm` native arm64 runner); nothing is built locally |
 | Main pitfall | The upstream `docs/DISTRIBUTION_SUPPORT.md` table still says ARM64 has no binaries; it is out of date. Trust [`INSTALL.md`](https://github.com/denialwm/denial/blob/main/docs/INSTALL.md), the release page and the APT repository |
 
+> The build workflow also supports **Ubuntu 24.04 and newer** (`Distribution = Ubuntu`; arm64 packages come from `ports.ubuntu.com`). Upstream validates Denial on Debian 13 and Ubuntu 24.04 only; newer Ubuntu releases reuse the `noble` packages on a best-effort basis, and the rest of this document assumes Debian 13.
+
 ---
 
 ## 1. Prerequisites

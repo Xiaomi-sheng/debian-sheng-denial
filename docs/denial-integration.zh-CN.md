@@ -17,6 +17,8 @@
 | 构建方式 | **只用 GitHub Actions 线上构建**（`ubuntu-24.04-arm` 原生 arm64 runner），本机不编译 |
 | 最大坑 | 上游 `docs/DISTRIBUTION_SUPPORT.md` 的表格仍写「ARM64 无二进制」，已滞后；以 [`INSTALL.md`](https://github.com/denialwm/denial/blob/main/docs/INSTALL.md)、发布页和 apt 源为准 |
 
+> 本仓库的构建工作流也支持 **Ubuntu 24.04 及更新版本**（`Distribution = Ubuntu`，arm64 走 `ports.ubuntu.com`）。Denial 上游只在 Debian 13 与 Ubuntu 24.04 做过验证；其他 Ubuntu 版本用 `noble` 包尽力支持，本文其余内容以 Debian 13 为准。
+
 ---
 
 ## 1. 前置条件
