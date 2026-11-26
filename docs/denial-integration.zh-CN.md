@@ -227,7 +227,7 @@ sudo usermod -aG video,render,input,audio,plugdev username
           echo "✓ Denial session configured (SDDM, Session=denial)"
 ```
 
-> 注意：`distro_suite=forky` 时 Denial 源仍指向 `trixie` suite（上游说明为尽力支持）。denial 包 `Depends` 里已包含 `libegl1/libgbm1/libgles2/libwayland-client0/libseat1/xwayland` 等，`apt` 会自动补齐。
+> 注意：Debian forky（`Debian Version = 14`）时 Denial 源仍指向 `trixie` suite（上游说明为尽力支持）。denial 包 `Depends` 里已包含 `libegl1/libgbm1/libgles2/libwayland-client0/libseat1/xwayland` 等，`apt` 会自动补齐。
 >
 > 如果改用 GDM，别走 `sddm` 分支：装 `gdm3`，按 4.4 节写 `/etc/gdm3/daemon.conf` 和 `/var/lib/AccountsService/users/<用户>`；`quiet_boot` 逻辑（`desktop != 'server'`）对 Denial 同样生效，Plymouth 会正常安装。
 
@@ -237,7 +237,8 @@ Actions → **Build RootFS** → Run workflow，建议参数：
 
 | 参数 | 建议值 | 说明 |
 | --- | --- | --- |
-| Debian Version | `trixie` | Denial 已验证；forky 未验证 |
+| Distribution | `Debian`（或 `Ubuntu`） | Denial 上游验证 Debian 13 / Ubuntu 24.04 |
+| Debian Version | `13` | Denial 已验证；`14`（forky）未验证 |
 | Desktop Environment | `Denial` | 已内置；旧镜像仍可用 `server` + 路线 A |
 | Autologin | `true` | 平板直进 Denial |
 | Username / Hostname | 自定 | 用户名会写进 autologin |

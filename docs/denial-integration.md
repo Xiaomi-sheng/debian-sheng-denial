@@ -242,7 +242,7 @@ future upgrades and rollbacks.
           echo "✓ Denial session configured (SDDM, Session=denial)"
 ```
 
-> With `distro_suite=forky` the Denial repository still points at the `trixie`
+> With Debian forky (`Debian Version = 14`) the Denial repository still points at the `trixie`
 > suite (upstream calls this best-effort). The `denial` package's `Depends`
 > already covers `libegl1/libgbm1/libgles2/libwayland-client0/libseat1/xwayland`
 > and friends, so `apt` resolves them.
@@ -256,7 +256,8 @@ Actions → **Build RootFS** → Run workflow. Suggested inputs:
 
 | Input | Value | Why |
 | --- | --- | --- |
-| Debian Version | `trixie` | Denial is validated; forky is not |
+| Distribution | `Debian` (or `Ubuntu`) | Denial is validated on Debian 13 / Ubuntu 24.04 |
+| Debian Version | `13` | Denial is validated; `14` (forky) is not |
 | Desktop Environment | `Denial` | Built in; existing images can still use `server` + path A |
 | Autologin | `true` | Tablet boots straight into Denial |
 | Username / Hostname | your choice | The username is written into autologin |

@@ -15,19 +15,24 @@ on:
           - Ubuntu
         default: 'Debian'
 
-      distro_suite:
-        description: 'Debian Version (used when Distribution = Debian)'
+      debian_version:
+        description: 'Debian version (used when Distribution = Debian)'
         type: choice
         options:
-          - trixie
-          - forky
-        default: 'trixie'
+          - '13'
+          - '14'
+        default: '13'
 
-      ubuntu_suite:
-        description: 'Ubuntu codename, 24.04+ (used when Distribution = Ubuntu): noble=24.04, oracular=24.10, plucky=25.04, questing=25.10, resolute=26.04'
-        type: string
-        required: false
-        default: 'noble'
+      ubuntu_version:
+        description: 'Ubuntu version (used when Distribution = Ubuntu)'
+        type: choice
+        options:
+          - '24.04'
+          - '24.10'
+          - '25.04'
+          - '25.10'
+          - '26.04'
+        default: '24.04'
 
       desktop:
         description: 'Desktop Environment (server = no DE)'
@@ -694,17 +699,24 @@ jobs:
               exit 1
             fi
           fi
-          if [[ "${{ inputs.distro }}" == "Ubuntu" && -z "${{ inputs.ubuntu_suite }}" ]]; then
-            echo "Error: ubuntu_suite is required when Distribution = Ubuntu"
-            exit 1
-          fi
           echo "✓ Arguments verified"
 
       - name: "Resolve Distribution"
         id: os
         run: |
           if [[ "${{ inputs.distro }}" == "Ubuntu" ]]; then
-            SUITE="${{ inputs.ubuntu_suite }}"
+            # Menu shows the release number; the archive only knows codenames.
+            case "${{ inputs.ubuntu_version }}" in
+              '24.04') SUITE=noble ;;
+              '24.10') SUITE=oracular ;;
+              '25.04') SUITE=plucky ;;
+              '25.10') SUITE=questing ;;
+              '26.04') SUITE=resolute ;;
+              *)
+                echo "Error: unsupported Ubuntu version '${{ inputs.ubuntu_version }}'"
+                exit 1
+                ;;
+            esac
             echo "suite=$SUITE" >> $GITHUB_OUTPUT
             echo "mirror=http://ports.ubuntu.com/ubuntu-ports/" >> $GITHUB_OUTPUT
             echo "components=main,universe,restricted,multiverse" >> $GITHUB_OUTPUT
@@ -714,7 +726,14 @@ jobs:
               echo "::warning::Denial is only validated on Ubuntu 24.04 (noble); $SUITE uses the noble package suite as a best effort."
             fi
           else
-            SUITE="${{ inputs.distro_suite }}"
+            case "${{ inputs.debian_version }}" in
+              '13') SUITE=trixie ;;
+              '14') SUITE=forky ;;
+              *)
+                echo "Error: unsupported Debian version '${{ inputs.debian_version }}'"
+                exit 1
+                ;;
+            esac
             echo "suite=$SUITE" >> $GITHUB_OUTPUT
             echo "mirror=http://deb.debian.org/debian/" >> $GITHUB_OUTPUT
             echo "components=main,contrib,non-free-firmware" >> $GITHUB_OUTPUT
