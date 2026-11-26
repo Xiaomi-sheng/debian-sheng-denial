@@ -40,6 +40,12 @@ on:
         type: string
         default: 'username'
 
+      password:
+        description: 'Password for the user and root (empty = repository secret ROOTFS_PASSWORD, else "password")'
+        type: string
+        required: false
+        default: ''
+
       hostname:
         description: 'Hostname'
         type: string
@@ -656,10 +662,13 @@ jobs:
 
       - name: "Verify Arguments"
         env:
+          INPUT_PASSWORD: ${{ inputs.password }}
           ROOTFS_PASSWORD: ${{ secrets.ROOTFS_PASSWORD }}
         run: |
-          if [[ -z "$ROOTFS_PASSWORD" ]]; then
-            echo "::warning::ROOTFS_PASSWORD is not set; the image will use the default password 'password'."
+          if [[ -z "$INPUT_PASSWORD" && -z "$ROOTFS_PASSWORD" ]]; then
+            echo "::warning::Neither the password input nor ROOTFS_PASSWORD is set; the image will use the default password 'password'."
+          elif [[ -n "$INPUT_PASSWORD" ]]; then
+            echo "::warning::Using the workflow input password; it appears in this run's metadata. Prefer the ROOTFS_PASSWORD secret on public repositories."
           fi
           if [[ "${{ inputs.boot_mode }}" == "custom" ]]; then
             if [[ "${{ inputs.kernel_source }}" != "custom_build" ]]; then
@@ -1102,12 +1111,18 @@ jobs:
 
       - name: "Set Passwords"
         env:
-          ROOTFS_PASSWORD: ${{ secrets.ROOTFS_PASSWORD }}
+          INPUT_PASSWORD: ${{ inputs.password }}
+          SECRET_PASSWORD: ${{ secrets.ROOTFS_PASSWORD }}
         run: |
-          if [[ -z "$ROOTFS_PASSWORD" ]]; then
-            ROOTFS_PASSWORD="password"
-          else
+          if [[ -n "$INPUT_PASSWORD" ]]; then
+            ROOTFS_PASSWORD="$INPUT_PASSWORD"
             echo "::add-mask::$ROOTFS_PASSWORD"
+          elif [[ -n "$SECRET_PASSWORD" ]]; then
+            ROOTFS_PASSWORD="$SECRET_PASSWORD"
+            echo "::add-mask::$ROOTFS_PASSWORD"
+          else
+            ROOTFS_PASSWORD="password"
+            echo "::warning::No password was provided; the image uses the default password 'password'."
           fi
           printf '%s:%s\n' "${{ inputs.username }}" "$ROOTFS_PASSWORD" | \
             sudo chroot "$ROOTFS_MOUNT" chpasswd

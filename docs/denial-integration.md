@@ -255,9 +255,10 @@ Actions → **Build RootFS** → Run workflow. Suggested inputs:
 | Input | Value | Why |
 | --- | --- | --- |
 | Debian Version | `trixie` | Denial is validated; forky is not |
-| Desktop Environment | `Denial` (after the workflow change) | Today use `server` + path A |
+| Desktop Environment | `Denial` | Built in; existing images can still use `server` + path A |
 | Autologin | `true` | Tablet boots straight into Denial |
 | Username / Hostname | your choice | The username is written into autologin |
+| Password | your choice, or empty | Empty falls back to the `ROOTFS_PASSWORD` secret, then to `password`; prefer the secret on public repos |
 | Boot mode | `dual (linux)` | Keeps the existing OS; `single` wipes userdata |
 | Quiet boot | `true` | Plymouth splash |
 | Kernel Source | `prebuilt` | Fastest; `custom_build` compiles the kernel first |

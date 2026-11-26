@@ -236,9 +236,10 @@ Actions → **Build RootFS** → Run workflow，建议参数：
 | 参数 | 建议值 | 说明 |
 | --- | --- | --- |
 | Debian Version | `trixie` | Denial 已验证；forky 未验证 |
-| Desktop Environment | `Denial`（改完 workflow 后才有） | 当前可用 `server` + 路线 A |
+| Desktop Environment | `Denial` | 已内置；旧镜像仍可用 `server` + 路线 A |
 | Autologin | `true` | 平板直进 Denial |
 | Username / Hostname | 自定 | 用户名会写进 autologin |
+| Password | 自定或留空 | 留空时用仓库 secret `ROOTFS_PASSWORD`，再退默认 `password`；公开仓库优先用 secret |
 | Boot mode | `dual (linux)` | 保留原系统；`single` 会清空 userdata |
 | Quiet boot | `true` | Plymouth 静默开机 |
 | Kernel Source | `prebuilt` | 最快；`custom_build` 会先编内核，耗时更长 |

@@ -68,6 +68,7 @@ When you trigger the **Build RootFS** workflow via `workflow_dispatch`, the foll
 | **Plasma Mobile** | Install `plasma-mobile` instead of `plasma-desktop` when Desktop Environment is `KDE Plasma`. | `true` / `false` | `false` |
 | **Autologin** | Whether the created user should be logged in automatically. | `true` / `false` | `true` |
 | **Username** | Username for the non-root user. | string | `username` |
+| **Password** | Password for the non-root user and `root`. Leave empty to use the repository secret `ROOTFS_PASSWORD`, then the default `password`. | string | *(empty)* |
 | **Hostname** | System hostname. | string | `xiaomi-sheng` |
 | **System language** | System locale for the generated root filesystem. Selecting `None (C.UTF-8)` keeps the default locale; selecting another option generates that locale together with `en_US.UTF-8` and sets it as the system default. | `None (C.UTF-8)` / `en_US.UTF-8` / `zh_CN.UTF-8` / `zh_TW.UTF-8` / `ja_JP.UTF-8` / `ko_KR.UTF-8` / `de_DE.UTF-8` / `fr_FR.UTF-8` / `es_ES.UTF-8` / `ru_RU.UTF-8` | `None (C.UTF-8)` |
 | **Boot mode** | Determines which partition Debian boots from. See the [Flashing](#flashing-to-your-device) section for details. | `single (userdata)` – use the entire `userdata` partition; <br> `dual (linux)` – use a dedicated `linux` partition (dual boot); <br> `custom` – use a custom partition name (must be specified below) | `dual (linux)` |
@@ -81,8 +82,8 @@ When you trigger the **Build RootFS** workflow via `workflow_dispatch`, the foll
 | **Firmware Branch** | Branch to checkout from the firmware repository. | branch name | `master` |
 
 > **Notes**  
-> - To use a custom password, you **must** create a repository secret named `ROOTFS_PASSWORD` before running the workflow. The workflow maps this secret to an environment variable and uses it as the password for both the configured user and `root`.  
-> - If `ROOTFS_PASSWORD` is not set, the image will still be built, but the password will fall back to the insecure default value: `password`.  
+> - **Password** for the configured user and `root` comes from the `Password` input when it is filled, otherwise from the repository secret `ROOTFS_PASSWORD`, otherwise it falls back to the insecure default value: `password`.  
+> - Prefer the `ROOTFS_PASSWORD` secret on public repositories: a `workflow_dispatch` input value is stored in the run's metadata and is only masked inside the job log. The input exists so forked copies can set a password without creating a secret.  
 > - If you choose **Boot mode = `custom`**, you **must** fill in the **Custom partition** field.  
 > - If you choose **Kernel source = `custom_build`**, you **must** provide the **Kernel Repo URL**, **Kernel Branch**, and **Kernel Config** fields.  
 ---
