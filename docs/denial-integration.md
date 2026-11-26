@@ -2,12 +2,11 @@
 
 [简体中文](denial-integration.zh-CN.md) | English
 
-> **Document status v1 (2026-11-26)**: this repository is a fork of
+> **Document status v2 (2026-11-26)**: this repository is a fork of
 > [`ianchb/debian-sheng`](https://github.com/ianchb/debian-sheng) that adds Denial
-> integration. The current `.github/workflows/rootfs.yml` **has no Denial option
-> yet**; this document describes the integration, a directly testable on-device
-> install path, and the CI steps needed for a real online build. It will be
-> updated once the workflow lands.
+> integration. `.github/workflows/rootfs.yml` and `rootfs-lite.yml` **now include
+> a `Denial` desktop option** (path B has landed); path A (install after flashing)
+> still works for existing images and single-device validation.
 
 ---
 
@@ -186,9 +185,11 @@ sudo usermod -aG video,render,input,audio,plugdev username
 
 ---
 
-## 5. Path B: integrate into the online build (recommended)
+## 5. Path B: integrate into the online build (now built in)
 
-Four changes in `.github/workflows/rootfs.yml` (same shape in `rootfs-lite.yml`).
+`.github/workflows/rootfs.yml` and `rootfs-lite.yml` already contain the changes
+below (2026-11-26); this section is kept as the implementation reference for
+future upgrades and rollbacks.
 
 ### 5.1 Add the option to `workflow_dispatch.inputs.desktop`
 
@@ -204,7 +205,7 @@ Four changes in `.github/workflows/rootfs.yml` (same shape in `rootfs-lite.yml`)
         default: 'KDE Plasma'
 ```
 
-### 5.2 Add install steps after the `# Desktop Environment` section
+### 5.2 Install and session steps (added to the `# Desktop Environment` section)
 
 ```yaml
       - name: "Install Denial"
@@ -223,25 +224,20 @@ Four changes in `.github/workflows/rootfs.yml` (same shape in `rootfs-lite.yml`)
           '
           echo "✓ Denial installed"
 
-      - name: "Configure Denial session"
+      - name: "Configure Denial Session"
         if: ${{ inputs.desktop == 'Denial' }}
         run: |
           sudo chroot "$ROOTFS_MOUNT" apt-get install -y sddm
-          sudo mkdir -p "$ROOTFS_MOUNT/etc/sddm.conf.d"
-          if [[ "${{ inputs.autologin }}" == "true" ]]; then
-            sudo tee "$ROOTFS_MOUNT/etc/sddm.conf.d/10-denial.conf" >/dev/null <<'EOF'
-          [Autologin]
-          User=__USER__
-          Session=denial
-          EOF
-            sudo sed -i "s/__USER__/${{ inputs.username }}/" \
-              "$ROOTFS_MOUNT/etc/sddm.conf.d/10-denial.conf"
-          fi
           sudo chroot "$ROOTFS_MOUNT" usermod -aG video,render,input,audio,plugdev \
             "${{ inputs.username }}"
+          if [[ "${{ inputs.autologin }}" == "true" ]]; then
+            sudo mkdir -p "$ROOTFS_MOUNT/etc/sddm.conf.d"
+            printf '[Autologin]\nUser=%s\nSession=denial\n' "${{ inputs.username }}" | \
+              sudo tee "$ROOTFS_MOUNT/etc/sddm.conf.d/10-denial.conf" >/dev/null
+          fi
           sudo chroot "$ROOTFS_MOUNT" systemctl enable sddm
           sudo chroot "$ROOTFS_MOUNT" systemctl set-default graphical.target
-          echo "✓ Denial session configured"
+          echo "✓ Denial session configured (SDDM, Session=denial)"
 ```
 
 > With `distro_suite=forky` the Denial repository still points at the `trixie`

@@ -15,7 +15,7 @@ Simply start a workflow in your own repository and you will have a ready-to-use 
 
 ## Documentation
 
-This fork targets the [Denial](https://github.com/denialwm/denial) Wayland desktop instead of the stock desktop environments. Integration notes, in both languages:
+This fork targets the [Denial](https://github.com/denialwm/denial) Wayland desktop instead of the stock desktop environments. The **Build RootFS** workflow has a dedicated `Denial` desktop option; integration notes, in both languages:
 
 - [Denial integration guide (English)](docs/denial-integration.md)
 - [Denial 集成指南（简体中文）](docs/denial-integration.zh-CN.md)

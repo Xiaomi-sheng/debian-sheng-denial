@@ -2,7 +2,7 @@
 
 简体中文 | [English](denial-integration.md)
 
-> **文档状态 v1（2026-11-26）**：本仓库是从 [`ianchb/debian-sheng`](https://github.com/ianchb/debian-sheng) fork 出来的 Denial 集成分支。当前 `.github/workflows/rootfs.yml` **还没有内置 Denial 选项**；本文给出集成方案、设备上手动安装的可验证路径，以及真正「线上构建」需要补进 CI 的步骤。仓库改好后本文会同步更新。
+> **文档状态 v2（2026-11-26）**：本仓库是从 [`ianchb/debian-sheng`](https://github.com/ianchb/debian-sheng) fork 出来的 Denial 集成分支。`.github/workflows/rootfs.yml` 与 `rootfs-lite.yml` **已内置 `Denial` 桌面选项**（路线 B 已落地）；路线 A（刷好后手动装）仍可用于旧镜像或单机验证。
 
 ---
 
@@ -172,9 +172,9 @@ sudo usermod -aG video,render,input,audio,plugdev username
 
 ---
 
-## 5. 路线 B：在线上构建里集成 Denial（推荐）
+## 5. 路线 B：在线上构建里集成 Denial（已内置）
 
-只改 `.github/workflows/rootfs.yml`（`rootfs-lite.yml` 结构相同），共 4 处。
+仓库的 `.github/workflows/rootfs.yml` 与 `rootfs-lite.yml` 已加入以下内容（2026-11-26）；本节保留为实现说明，方便升级或回滚。
 
 ### 5.1 `workflow_dispatch.inputs.desktop` 增加选项
 
@@ -190,7 +190,7 @@ sudo usermod -aG video,render,input,audio,plugdev username
         default: 'KDE Plasma'
 ```
 
-### 5.2 在 `# Desktop Environment` 段后追加安装步骤
+### 5.2 安装与会话步骤（已在 `# Desktop Environment` 段落地）
 
 ```yaml
       - name: "Install Denial"
@@ -209,25 +209,20 @@ sudo usermod -aG video,render,input,audio,plugdev username
           '
           echo "✓ Denial installed"
 
-      - name: "Configure Denial session"
+      - name: "Configure Denial Session"
         if: ${{ inputs.desktop == 'Denial' }}
         run: |
           sudo chroot "$ROOTFS_MOUNT" apt-get install -y sddm
-          sudo mkdir -p "$ROOTFS_MOUNT/etc/sddm.conf.d"
-          if [[ "${{ inputs.autologin }}" == "true" ]]; then
-            sudo tee "$ROOTFS_MOUNT/etc/sddm.conf.d/10-denial.conf" >/dev/null <<'EOF'
-          [Autologin]
-          User=__USER__
-          Session=denial
-          EOF
-            sudo sed -i "s/__USER__/${{ inputs.username }}/" \
-              "$ROOTFS_MOUNT/etc/sddm.conf.d/10-denial.conf"
-          fi
           sudo chroot "$ROOTFS_MOUNT" usermod -aG video,render,input,audio,plugdev \
             "${{ inputs.username }}"
+          if [[ "${{ inputs.autologin }}" == "true" ]]; then
+            sudo mkdir -p "$ROOTFS_MOUNT/etc/sddm.conf.d"
+            printf '[Autologin]\nUser=%s\nSession=denial\n' "${{ inputs.username }}" | \
+              sudo tee "$ROOTFS_MOUNT/etc/sddm.conf.d/10-denial.conf" >/dev/null
+          fi
           sudo chroot "$ROOTFS_MOUNT" systemctl enable sddm
           sudo chroot "$ROOTFS_MOUNT" systemctl set-default graphical.target
-          echo "✓ Denial session configured"
+          echo "✓ Denial session configured (SDDM, Session=denial)"
 ```
 
 > 注意：`distro_suite=forky` 时 Denial 源仍指向 `trixie` suite（上游说明为尽力支持）。denial 包 `Depends` 里已包含 `libegl1/libgbm1/libgles2/libwayland-client0/libseat1/xwayland` 等，`apt` 会自动补齐。

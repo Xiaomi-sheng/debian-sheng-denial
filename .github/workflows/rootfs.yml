@@ -21,6 +21,7 @@ on:
         options:
           - GNOME
           - KDE Plasma
+          - Denial
           - server
         default: 'KDE Plasma'
 
@@ -1151,6 +1152,41 @@ jobs:
           sudo chroot "$ROOTFS_MOUNT" apt-get install -y \
             kde-config-plymouth plymouth-theme-breeze
           echo "✓ KDE Plasma Plymouth settings installed"
+
+      # ----------------------------------------------------------------
+      # Denial (Wayland compositor + Flutter shell)
+      # ----------------------------------------------------------------
+
+      - name: "Install Denial"
+        if: ${{ inputs.desktop == 'Denial' }}
+        run: |
+          sudo chroot "$ROOTFS_MOUNT" bash -c '
+            set -euo pipefail
+            install -d -m 0755 /etc/apt/keyrings
+            curl -fsSL https://packages.denialwm.org/denial-repo-key.asc \
+              -o /etc/apt/keyrings/denial.asc
+            chmod 0644 /etc/apt/keyrings/denial.asc
+            echo "deb [signed-by=/etc/apt/keyrings/denial.asc] https://packages.denialwm.org/apt trixie main" \
+              > /etc/apt/sources.list.d/denial.list
+            apt-get update
+            apt-get install -y denial
+          '
+          echo "✓ Denial installed"
+
+      - name: "Configure Denial Session"
+        if: ${{ inputs.desktop == 'Denial' }}
+        run: |
+          sudo chroot "$ROOTFS_MOUNT" apt-get install -y sddm
+          sudo chroot "$ROOTFS_MOUNT" usermod -aG video,render,input,audio,plugdev \
+            "${{ inputs.username }}"
+          if [[ "${{ inputs.autologin }}" == "true" ]]; then
+            sudo mkdir -p "$ROOTFS_MOUNT/etc/sddm.conf.d"
+            printf '[Autologin]\nUser=%s\nSession=denial\n' "${{ inputs.username }}" | \
+              sudo tee "$ROOTFS_MOUNT/etc/sddm.conf.d/10-denial.conf" >/dev/null
+          fi
+          sudo chroot "$ROOTFS_MOUNT" systemctl enable sddm
+          sudo chroot "$ROOTFS_MOUNT" systemctl set-default graphical.target
+          echo "✓ Denial session configured (SDDM, Session=denial)"
 
       - name: "Configure GDM"
         if: ${{ inputs.desktop == 'GNOME' && (!inputs.autologin) }}
