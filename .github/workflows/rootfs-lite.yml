@@ -1103,12 +1103,26 @@ jobs:
           echo "  Packages to install:"
           sudo ls -lah "$ROOTFS_MOUNT/tmp/"*.deb
 
-          sudo chroot "$ROOTFS_MOUNT" bash -c "
-            apt-get update
-            apt-get install -y /tmp/*.deb 2>&1 || apt-get install -f -y
-            rm /tmp/*.deb
-          "
-          echo "✓ All .deb packages installed"
+          # Install one package at a time. A single unsatisfiable dependency
+          # must not abort the whole batch on another distribution: for example
+          # xiaomi-sheng-fingerprint needs fprintd >= 1.94.5, which Debian 13
+          # ships but Ubuntu 24.04 does not, and that used to leave the kernel
+          # and firmware packages uninstalled as well.
+          sudo chroot "$ROOTFS_MOUNT" bash -c '
+            set -u
+            for deb in /tmp/*.deb; do
+              base="$(basename "$deb")"
+              if apt-get install -y "$deb" >/tmp/deb-install.log 2>&1; then
+                echo "  ✓ ${base}"
+              else
+                echo "::warning::${base} could not be installed on this release; skipping it"
+                sed -n "/^The following packages have unmet dependencies/,/^E:/p" /tmp/deb-install.log | head -8
+              fi
+            done
+            apt-get install -f -y >/dev/null 2>&1 || true
+            rm -f /tmp/*.deb /tmp/deb-install.log
+          '
+          echo "✓ .deb packages processed"
 
       # ----------------------------------------------------------------
       # System Tuning
@@ -1146,8 +1160,12 @@ jobs:
 
       - name: "Enable Sensor Services"
         run: |
-          sudo chroot "$ROOTFS_MOUNT" systemctl enable adsprpcd-sensorspd.service
-          echo "✓ Sensor services enabled"
+          if [[ -f "$ROOTFS_MOUNT/usr/lib/systemd/system/adsprpcd-sensorspd.service" ]]; then
+            sudo chroot "$ROOTFS_MOUNT" systemctl enable adsprpcd-sensorspd.service
+            echo "✓ Sensor services enabled"
+          else
+            echo "::warning::adsprpcd-sensorspd.service is missing (fastrpc did not install); sensor service not enabled."
+          fi
 
       - name: "Set Hostname"
         run: |
