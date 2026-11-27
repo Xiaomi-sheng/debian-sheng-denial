@@ -1,0 +1,153 @@
+# ============================================================================
+# 🐧 构建根文件系统（Debian） / Build RootFS (Debian)
+# ============================================================================
+# 两个发行版的构建流程完全独立：各有一份菜单与工作流文件，互不影响。
+# The Debian and Ubuntu builds are fully independent: separate menus and
+# separate workflow files, so options never mix.
+#
+# 实际构建逻辑在 rootfs-build.yml（可复用工作流）里。
+# The build logic itself lives in the reusable rootfs-build.yml.
+
+name: 构建根文件系统（Debian） / Build RootFS (Debian)
+
+on:
+  workflow_dispatch:
+    inputs:
+      debian_version:
+        description: "Debian 版本号 / Debian version (13, 14)"
+        type: choice
+        options:
+          - "13"
+          - "14"
+        default: "13"
+
+      desktop:
+        description: "预装桌面 / Desktop environment"
+        type: choice
+        options:
+          - "GNOME 桌面 / GNOME Desktop"
+          - "KDE 桌面 / KDE Desktop"
+          - "Denial 桌面 / Denial Desktop"
+          - "无桌面 / Headless"
+        default: "KDE 桌面 / KDE Desktop"
+
+      plasma_mobile:
+        description: "KDE 用 Plasma Mobile / Plasma Mobile"
+        type: boolean
+        default: false
+
+      autologin:
+        description: "自动登录 / Autologin"
+        type: boolean
+        default: true
+
+      username:
+        description: "用户名 / Username"
+        type: string
+        default: "username"
+
+      password:
+        description: "密码（留空用 secret，再默认 password）/ Password (empty = secret, then default)"
+        type: string
+        default: ""
+
+      hostname:
+        description: "主机名 / Hostname"
+        type: string
+        default: "xiaomi-sheng"
+
+      language:
+        description: "系统语言 / System language"
+        type: choice
+        options:
+          - "None (C.UTF-8)"
+          - "en_US.UTF-8"
+          - "zh_CN.UTF-8"
+          - "zh_TW.UTF-8"
+          - "ja_JP.UTF-8"
+          - "ko_KR.UTF-8"
+          - "de_DE.UTF-8"
+          - "fr_FR.UTF-8"
+          - "es_ES.UTF-8"
+          - "ru_RU.UTF-8"
+        default: "None (C.UTF-8)"
+
+      boot_mode:
+        description: "启动方式 / Boot mode: single=userdata, dual=linux, custom=指定分区"
+        type: choice
+        options:
+          - "单系统 userdata / Single userdata"
+          - "双系统 linux / Dual linux"
+          - "自定义分区 / Custom partition"
+        default: "双系统 linux / Dual linux"
+
+      quiet_boot:
+        description: "安静启动 / Quiet boot (Plymouth)"
+        type: boolean
+        default: true
+
+      custom_partition:
+        description: "自定义分区名 / Custom partition name"
+        type: string
+        default: ""
+
+      kernel_source:
+        description: "内核来源 / Kernel source: prebuilt or build from source"
+        type: choice
+        options:
+          - "预构建内核 / Prebuilt kernel"
+          - "自行编译内核 / Build from source"
+        default: "预构建内核 / Prebuilt kernel"
+
+      kernel_repo:
+        description: "内核仓库 / Kernel repository URL"
+        type: string
+        default: "https://github.com/ianchb/sm8550-mainline"
+
+      kernel_branch:
+        description: "内核分支 / Kernel branch"
+        type: string
+        default: "sheng-7.3.4"
+
+      kernel_config:
+        description: "内核配置 / Kernel config file"
+        type: string
+        default: "sm8550.config"
+
+      firmware_repo:
+        description: "固件仓库 / Firmware repository URL"
+        type: string
+        default: "https://github.com/ianchb/sheng-firmware"
+
+      firmware_branch:
+        description: "固件分支 / Firmware branch"
+        type: string
+        default: "master"
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/rootfs-build.yml
+    with:
+      distro: Debian
+      version: ${{ inputs.debian_version }}
+      desktop: ${{ inputs.desktop }}
+      plasma_mobile: ${{ inputs.plasma_mobile }}
+      autologin: ${{ inputs.autologin }}
+      username: ${{ inputs.username }}
+      password: ${{ inputs.password }}
+      hostname: ${{ inputs.hostname }}
+      language: ${{ inputs.language }}
+      boot_mode: ${{ inputs.boot_mode }}
+      quiet_boot: ${{ inputs.quiet_boot }}
+      custom_partition: ${{ inputs.custom_partition }}
+      kernel_source: ${{ inputs.kernel_source }}
+      kernel_repo: ${{ inputs.kernel_repo }}
+      kernel_branch: ${{ inputs.kernel_branch }}
+      kernel_config: ${{ inputs.kernel_config }}
+      firmware_repo: ${{ inputs.firmware_repo }}
+      firmware_branch: ${{ inputs.firmware_branch }}
+    secrets: inherit

@@ -4,7 +4,7 @@
 
 > **Document status v2 (2026-11-26)**: this repository is a fork of
 > [`ianchb/debian-sheng`](https://github.com/ianchb/debian-sheng) that adds Denial
-> integration. `.github/workflows/rootfs.yml` and `rootfs-lite.yml` **now include
+> integration. Builds are split into two independent workflows: `.github/workflows/build-debian.yml` (Debian menu) and `build-ubuntu.yml` (Ubuntu menu), both sharing the reusable `.github/workflows/rootfs-build.yml`; `rootfs-lite.yml` **now include
 > a `Denial 桌面 / Denial Desktop` desktop option** (path B has landed); path A (install after flashing)
 > still works for existing images and single-device validation.
 
@@ -56,7 +56,7 @@ build-sheng-sensors    │
 build-sheng-devauth ───┘
 ```
 
-Key steps of `build-rootfs` (`.github/workflows/rootfs.yml`):
+Key steps of `build-rootfs` (`.github/workflows/rootfs-build.yml`, called by the Debian and Ubuntu menus):
 
 1. `debootstrap --arch=arm64 --components=main,contrib,non-free-firmware trixie http://deb.debian.org/debian/`;
 2. bind `/dev`, `/proc`, `/sys` and install base packages (systemd, NetworkManager, dbus, …);
@@ -79,7 +79,7 @@ arm64 chroot natively, and its artifacts can be downloaded and flashed directly.
 | Path | What it does | When to use |
 | --- | --- | --- |
 | **A. Install after flashing** | Flash a `无桌面 / Headless` or `GNOME 桌面 / GNOME Desktop` image, boot, `apt install denial` | Fastest way to validate GPU/DRM/session on one device |
-| **B. Integrate in CI (recommended)** | Add a `Denial 桌面 / Denial Desktop` desktop option plus install/session steps to `rootfs.yml`; Actions ships an image with Denial | "Build once, ship it" — the online-build path |
+| **B. Integrate in CI (recommended)** | Add a `Denial 桌面 / Denial Desktop` desktop option plus install/session steps to `rootfs-build.yml`; Actions ships an image with Denial | "Build once, ship it" — the online-build path |
 
 > Building a rootfs yourself on the host or in a container is not recommended (see §7).
 
@@ -189,7 +189,7 @@ sudo usermod -aG video,render,input,audio,plugdev username
 
 ## 5. Path B: integrate into the online build (now built in)
 
-`.github/workflows/rootfs.yml` and `rootfs-lite.yml` already contain the changes
+`.github/workflows/rootfs-build.yml` (called by `build-debian.yml` / `build-ubuntu.yml`) and `rootfs-lite.yml` already contain the changes
 below (2026-11-26); this section is kept as the implementation reference for
 future upgrades and rollbacks.
 
@@ -252,11 +252,11 @@ future upgrades and rollbacks.
 
 ### 5.3 Trigger the online build
 
-Actions → **构建根文件系统 / Build RootFS** → Run workflow. Suggested inputs (the UI is Simplified Chinese; the option values below are the exact dropdown strings):
+The Actions sidebar now has two menus: **构建根文件系统（Debian）/ Build RootFS (Debian)** and **构建根文件系统（Ubuntu）/ Build RootFS (Ubuntu)**; pick the one for your target. Suggested inputs for the Denial example (bilingual UI; the values below are the exact dropdown strings):
 
 | Input | Value | Why |
 | --- | --- | --- |
-| Distribution | `Debian` (or `Ubuntu`) | Denial is validated on Debian 13 / Ubuntu 24.04 |
+| Workflow | `构建根文件系统（Debian）` or `构建根文件系统（Ubuntu）` | Denial is validated on Debian 13 / Ubuntu 24.04 |
 | Debian Version | `13` | Denial is validated; `14` (forky) is not |
 | Desktop Environment | `Denial 桌面 / Denial Desktop` | Built in; existing images can still use `无桌面 / Headless` + path A |
 | Autologin | `true` | Tablet boots straight into Denial |
@@ -344,7 +344,7 @@ After the first boot, check in this order (this locates most failures):
 - **In-system**: `sudo apt remove denial` (the repository/session stay and can be
   reinstalled); restore `/etc/sddm.conf.d/10-denial.conf` to the previous session or
   delete it.
-- **CI**: the change is one commit to `rootfs.yml`; revert it and re-run Actions.
+- **CI**: the build logic is one reusable file (`rootfs-build.yml`); revert the commit and re-run Actions.
 
 ---
 

@@ -15,7 +15,7 @@ Simply start a workflow in your own repository and you will have a ready-to-use 
 
 ## Documentation
 
-This fork targets the [Denial](https://github.com/denialwm/denial) Wayland desktop instead of the stock desktop environments. The **构建根文件系统 / Build RootFS** workflow has a dedicated `Denial 桌面 / Denial Desktop` desktop option; integration notes, in both languages:
+This fork targets the [Denial](https://github.com/denialwm/denial) Wayland desktop instead of the stock desktop environments. The **构建根文件系统（Debian）/ Build RootFS (Debian)** and **构建根文件系统（Ubuntu）/ Build RootFS (Ubuntu)** workflows have a dedicated `Denial 桌面 / Denial Desktop` desktop option; integration notes, in both languages:
 
 - [Denial integration guide (English)](docs/denial-integration.md)
 - [Denial 集成指南（简体中文）](docs/denial-integration.zh-CN.md)
@@ -37,7 +37,7 @@ If Actions are disabled, click `I understand my workflows, go ahead and enable t
 
 ### 2. Run the Build Workflow
 
-In the **Actions** page, select **构建根文件系统 / Build RootFS** from the left sidebar, then click the **Run workflow** dropdown on the right.
+In the **Actions** page, select **构建根文件系统（Debian）/ Build RootFS (Debian)** or **构建根文件系统（Ubuntu）/ Build RootFS (Ubuntu)** from the left sidebar, then click the **Run workflow** dropdown on the right.
 
 You will see a list of configurable options (see [Advanced Configuration](#advanced-configuration) for details).  
 If you leave everything unchanged, the build will proceed with the **default settings**.
@@ -59,13 +59,12 @@ Under the **Artifacts** section, download `rootfs.img` and `boot.img`.
 
 ## Advanced Configuration
 
-When you trigger the **构建根文件系统 / Build RootFS** workflow via `workflow_dispatch`, the following inputs are available. The Run workflow menus, step names and log messages are in Simplified Chinese:
+The Debian and Ubuntu builds are **separate workflows with separate menus**, so their options never mix: pick the menu for the distribution you want. The Run workflow menus, step names and log messages are bilingual (中文 / English). Each menu exposes the following inputs; the Debian menu has `Debian Version`, while the Ubuntu menu has `Ubuntu Release`:
 
 | Parameter | Description | Options | Default |
 |-----------|-------------|---------|---------|
-| **Distribution** | Operating system to build (both arm64). Ubuntu support starts at 24.04 (noble). | `Debian` / `Ubuntu` | `Debian` |
-| **Debian Version** | Debian release number to install. Used only when Distribution = `Debian`. | `13` (trixie) / `14` (forky) | `13` |
-| **Ubuntu Release** | Ubuntu release number to install (arm64 packages come from `ports.ubuntu.com`). Used only when Distribution = `Ubuntu`. | `24.04` (noble) / `24.10` (oracular) / `25.04` (plucky) / `25.10` (questing) / `26.04` (resolute) | `24.04` |
+| **Debian Version** | Debian release number to install (Debian menu only). | `13` (trixie) / `14` (forky) | `13` |
+| **Ubuntu Release** | Ubuntu release number to install (Ubuntu menu only; arm64 packages come from `ports.ubuntu.com`). | `24.04` (noble) / `24.10` (oracular) / `25.04` (plucky) / `25.10` (questing) / `26.04` (resolute) | `24.04` |
 | **Desktop Environment** | Preinstalled desktop environment. Select `无桌面 / Headless` for a headless (no GUI) system. | `GNOME 桌面 / GNOME Desktop` / `KDE 桌面 / KDE Desktop` / `Denial 桌面 / Denial Desktop` / `无桌面 / Headless` | `KDE 桌面 / KDE Desktop` |
 | **Plasma Mobile** | Install `plasma-mobile` instead of `plasma-desktop` when Desktop Environment is `KDE 桌面 / KDE Desktop`. | `true` / `false` | `false` |
 | **Autologin** | Whether the created user should be logged in automatically. | `true` / `false` | `true` |
@@ -86,8 +85,8 @@ When you trigger the **构建根文件系统 / Build RootFS** workflow via `work
 > **Notes**  
 > - **Password** for the configured user and `root` comes from the `Password` input when it is filled, otherwise from the repository secret `ROOTFS_PASSWORD`, otherwise it falls back to the insecure default value: `password`.  
 > - Prefer the `ROOTFS_PASSWORD` secret on public repositories: a `workflow_dispatch` input value is stored in the run's metadata and is only masked inside the job log. The input exists so forked copies can set a password without creating a secret.  
-> - **Release numbers vs codenames**: both version menus show release numbers (`13`, `14`, `24.04`, `24.10`, ...); the workflow maps them to codenames (`trixie`, `noble`, ...) internally. To add a newer release, add its number to the menu and to the mapping in the **Resolve Distribution** step.  
-> - **Ubuntu builds**: `Distribution = Ubuntu` builds any Ubuntu 24.04+ arm64 release from `http://ports.ubuntu.com/ubuntu-ports/`. Denial is validated by upstream only on Ubuntu 24.04 (noble); newer Ubuntu releases reuse the `noble` Denial packages as a best effort. Ubuntu has no `firefox-esr` (Firefox is a snap), so GNOME/KDE images come without a preinstalled browser, and occasional terminal renames (`kgx`/`ptyxis`) or missing optional KDE apps are handled with fallbacks and warnings. On Ubuntu the GNOME choice installs Ubuntu's own `ubuntu-desktop-minimal` metapackage (`ubuntu-session`, extensions, PipeWire, Xorg), and GDM autologin is written to `/etc/gdm3/custom.conf` with the session pinned through AccountsService. The fingerprint package's `fprintd`/`libgusb` version pins are relaxed on Ubuntu because Ubuntu 24.04 ships slightly older versions; whether the reader then works still needs on-device testing.  
+> - **Release numbers vs codenames**: both version menus show release numbers (`13`, `14`, `24.04`, `24.10`, ...); the workflow maps them to codenames (`trixie`, `noble`, ...) internally. To add a newer release, add its number to the matching menu and to the mapping in the **Resolve Distribution** step of `rootfs-build.yml`.  
+> - **Ubuntu builds**: the Ubuntu menu builds any Ubuntu 24.04+ arm64 release from `http://ports.ubuntu.com/ubuntu-ports/`. Denial is validated by upstream only on Ubuntu 24.04 (noble); newer Ubuntu releases reuse the `noble` Denial packages as a best effort. Ubuntu has no `firefox-esr` (Firefox is a snap), so GNOME/KDE images come without a preinstalled browser, and occasional terminal renames (`kgx`/`ptyxis`) or missing optional KDE apps are handled with fallbacks and warnings. On Ubuntu the GNOME choice installs Ubuntu's own `ubuntu-desktop-minimal` metapackage (`ubuntu-session`, extensions, PipeWire, Xorg), and GDM autologin is written to `/etc/gdm3/custom.conf` with the session pinned through AccountsService. The fingerprint package's `fprintd`/`libgusb` version pins are relaxed on Ubuntu because Ubuntu 24.04 ships slightly older versions; whether the reader then works still needs on-device testing.  
 > - **KDE on Ubuntu 24.04** is Plasma 5.27; Debian 13 ships Plasma 6.x.  
 > - `qbootctl` (A/B slot switcher) is installed when the release packages it; otherwise the build warns and slot switching must be done from a PC (`fastboot`) or TWRP.  
 > - If you choose **Boot mode = `自定义分区 / Custom partition`**, you **must** fill in the **Custom partition** field.  

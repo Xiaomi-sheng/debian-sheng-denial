@@ -2,7 +2,7 @@
 
 简体中文 | [English](denial-integration.md)
 
-> **文档状态 v2（2026-11-26）**：本仓库是从 [`ianchb/debian-sheng`](https://github.com/ianchb/debian-sheng) fork 出来的 Denial 集成分支。`.github/workflows/rootfs.yml` 与 `rootfs-lite.yml` **已内置 `Denial 桌面 / Denial Desktop` 选项**（路线 B 已落地）；路线 A（刷好后手动装）仍可用于旧镜像或单机验证。
+> **文档状态 v2（2026-11-26）**：本仓库是从 [`ianchb/debian-sheng`](https://github.com/ianchb/debian-sheng) fork 出来的 Denial 集成分支。构建已拆成两个独立工作流：`.github/workflows/build-debian.yml`（Debian 菜单）与 `build-ubuntu.yml`（Ubuntu 菜单），共用可复用的 `.github/workflows/rootfs-build.yml`；`rootfs-lite.yml` **已内置 `Denial 桌面 / Denial Desktop` 选项**（路线 B 已落地）；路线 A（刷好后手动装）仍可用于旧镜像或单机验证。
 
 ---
 
@@ -51,7 +51,7 @@ build-sheng-sensors    │
 build-sheng-devauth ───┘
 ```
 
-`build-rootfs` 的关键步骤（`.github/workflows/rootfs.yml`）：
+`build-rootfs` 的关键步骤（`.github/workflows/rootfs-build.yml`，由 Debian/Ubuntu 两个菜单分别调用）：
 
 1. `debootstrap --arch=arm64 --components=main,contrib,non-free-firmware trixie http://deb.debian.org/debian/`；
 2. bind `/dev`、`/proc`、`/sys`，装基础包（systemd、NetworkManager、dbus 等）；
@@ -72,7 +72,7 @@ build-sheng-devauth ───┘
 | 路线 | 做什么 | 适用场景 |
 | --- | --- | --- |
 | **A. 刷机后手动安装** | 先刷一套「无桌面 / Headless」或「GNOME 桌面 / GNOME Desktop」镜像，开机联网后 `apt install denial` | 最快验证 GPU/DRM/会话是否正常；只改一个系统 |
-| **B. 线上构建时集成（推荐）** | 在 `rootfs.yml` 加 `Denial 桌面 / Denial Desktop` 选项和安装/会话步骤，Actions 直接产出带 Denial 的镜像 | 想「一次构建、直接出货」，符合线上构建要求 |
+| **B. 线上构建时集成（推荐）** | 在 `rootfs-build.yml` 加 `Denial 桌面 / Denial Desktop` 选项和安装/会话步骤，Actions 直接产出带 Denial 的镜像 | 想「一次构建、直接出货」，符合线上构建要求 |
 
 > 不建议在本机或容器里自己 `debootstrap`（见第 7 节）。
 
@@ -176,7 +176,7 @@ sudo usermod -aG video,render,input,audio,plugdev username
 
 ## 5. 路线 B：在线上构建里集成 Denial（已内置）
 
-仓库的 `.github/workflows/rootfs.yml` 与 `rootfs-lite.yml` 已加入以下内容（2026-11-26）；本节保留为实现说明，方便升级或回滚。
+仓库的 `.github/workflows/rootfs-build.yml`（由 `build-debian.yml` / `build-ubuntu.yml` 两个菜单调用）与 `rootfs-lite.yml` 已加入以下内容（2026-11-26）；本节保留为实现说明，方便升级或回滚。
 
 ### 5.1 `workflow_dispatch.inputs.desktop` 增加选项
 
@@ -233,11 +233,11 @@ sudo usermod -aG video,render,input,audio,plugdev username
 
 ### 5.3 触发线上构建
 
-Actions → **构建根文件系统 / Build RootFS** → Run workflow，建议参数（界面为中文，下表选项值为下拉框原文）：
+Actions 左侧现在有两个菜单：**构建根文件系统（Debian）/ Build RootFS (Debian)** 与 **构建根文件系统（Ubuntu）/ Build RootFS (Ubuntu)**，按目标发行版选一个。下表以 Denial 为例（界面为中英双语，选项值为下拉框原文）：
 
 | 参数 | 建议值 | 说明 |
 | --- | --- | --- |
-| Distribution | `Debian`（或 `Ubuntu`） | Denial 上游验证 Debian 13 / Ubuntu 24.04 |
+| 工作流 | `构建根文件系统（Debian）/ Build RootFS (Debian)` 或 `构建根文件系统（Ubuntu）/ Build RootFS (Ubuntu)` | Denial 上游验证 Debian 13 / Ubuntu 24.04 |
 | Debian Version | `13` | Denial 已验证；`14`（forky）未验证 |
 | Desktop Environment | `Denial 桌面 / Denial Desktop` | 已内置；旧镜像仍可用「无桌面 / Headless」+ 路线 A |
 | Autologin | `true` | 平板直进 Denial |
@@ -308,7 +308,7 @@ fastboot reboot
 
 - **刷机层面**：刷入前备份原来的 `boot_b`/`linux` 分区与 `dtbo_b`；出问题用 `fastboot flash boot_b <原boot>.img`、`fastboot flash linux <原rootfs>.img`、`fastboot flash dtbo_b <原dtbo>.img` 恢复。
 - **系统内回滚**：`sudo apt remove denial`（会话与源保留可再装）；把 `/etc/sddm.conf.d/10-denial.conf` 改回原来的 `Session=plasma` 或删掉，切回原桌面。
-- **CI 层面**：改动只在 `rootfs.yml` 的一个分支提交里，回滚 = revert 该提交后重新跑 Actions。
+- **CI 层面**：构建逻辑只在 `rootfs-build.yml`，两个发行版菜单只是薄封装；回滚 = revert 对应提交后重新跑 Actions。
 
 ---
 
