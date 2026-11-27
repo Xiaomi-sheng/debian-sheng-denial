@@ -984,6 +984,24 @@ jobs:
           retention-days: 3
           if-no-files-found: error
 
+      - name: "适配 Ubuntu 指纹包依赖 / Relax fingerprint deps for Ubuntu"
+        if: ${{ inputs.distro == 'Ubuntu' }}
+        run: |
+          DEB=$(ls xiaomi-sheng-fingerprint*.deb | head -n1)
+          WORK=$(mktemp -d)
+          dpkg-deb -R "$DEB" "$WORK"
+          # 上游按 Debian 13 打包，钉死 fprintd>=1.94.5 与 libgusb2>=0.4.9；
+          # Ubuntu 24.04 自带 fprintd 1.94.3 / libgusb2 0.4.8，而包里自带的私有
+          # libfprint 只用 libgusb 的稳定 ABI，放宽版本下限即可正常安装。
+          sed -i \
+            -e 's/fprintd (>= 1\.94\.5)/fprintd/' \
+            -e 's/libgusb2 (>= 0\.4\.9) | libgusb2a (>= 0\.4\.9)/libgusb2/' \
+            "$WORK/DEBIAN/control"
+          grep '^Depends:' "$WORK/DEBIAN/control"
+          dpkg-deb --root-owner-group -b "$WORK" "$DEB" >/dev/null
+          rm -rf "$WORK"
+          echo "✓ 指纹包依赖已适配 Ubuntu / Fingerprint package deps relaxed for Ubuntu"
+
       - name: "下载 xiaomi-sheng-keyboard-helper / Download xiaomi-sheng-keyboard-helper"
         run: |
           LATEST_TAG=$(gh release list --repo ianchb/xiaomi-sheng-keyboard-helper --limit 1 --json tagName -q '.[0].tagName')
@@ -1118,7 +1136,7 @@ jobs:
                 echo "  ✓ ${base}"
               else
                 failed="${failed} ${deb}"
-                echo "::warning::${base} 还缺本列表里的其他包，稍后第二轮重试 / ${base} still needs another package from this list; retrying in a second pass"
+                echo "  稍后重试 ${base}（依赖排在列表后面）/ retrying ${base} in a second pass"
               fi
             done
             if [[ -n "${failed}" ]]; then
@@ -1134,6 +1152,14 @@ jobs:
               done
             fi
             apt-get install -f -y >/dev/null 2>&1 || true
+            # 关键设备包是否真的装上（Ubuntu 上指纹包曾因版本钉死被整包跳过）
+            for pkg in xiaomi-sheng-fingerprint xiaomi-pen-status xiaomi-sheng-thp; do
+              if dpkg -s "$pkg" >/dev/null 2>&1; then
+                echo "  ✓ ${pkg} 已安装 / installed"
+              else
+                echo "::warning::${pkg} 未安装 / is not installed"
+              fi
+            done
             rm -f /tmp/*.deb /tmp/deb-install.log
           '
           echo "✓ 设备 .deb 包已处理完成 / .deb packages processed"
