@@ -91,9 +91,29 @@ The Debian and Ubuntu builds are **separate workflows with separate menus**, so 
 > - `qbootctl` (A/B slot switcher) is installed when the release packages it; otherwise the build warns and slot switching must be done from a PC (`fastboot`) or TWRP.  
 > - If you choose **Boot mode = `自定义分区 / Custom partition`**, you **must** fill in the **Custom partition** field.  
 > - If you choose **Kernel source = `自行编译内核 / Build from source`**, you **must** provide the **Kernel Repo URL**, **Kernel Branch**, and **Kernel Config** fields.  
----
+### Local build on the phone (Droidspaces)
 
-## About Some Packages...
+If you prefer building on the phone instead of GitHub Actions: import an Ubuntu
+24.04 rootfs into Droidspaces (container tab → `+` → official rootfs repository
+→ Ubuntu 24.04), then inside that container:
+
+```sh
+git clone https://github.com/Xiaomi-sheng/debian-sheng-denial
+cd debian-sheng-denial
+./scripts/local-build.sh check     # 环境检查
+./scripts/local-build.sh debs      # 下载 + 编译全部设备包（缓存到 local-cache/）
+./scripts/local-build.sh install   # 装进当前 Ubuntu 24.04 容器（测试用）
+```
+
+The script caches the prebuilt kernel / Xiaomi packages in `local-cache/` and
+builds fastrpc, libssc, iio-sensor-proxy, sheng-sensors, sheng-devauth,
+alsa-xiaomi-sheng and the firmware package locally, so repeat runs reuse the
+cache. It also relaxes the fingerprint package's `fprintd`/`libgusb` pins on
+Ubuntu automatically. Use `WITH_KERNEL=1` / `WITH_FIRMWARE=1` to include the
+kernel/firmware packages in `install` (useful when preparing a flashable tree,
+not for container testing).
+
+## About Some Packages
 
 | Package | Description |
 |---------|-------------|
