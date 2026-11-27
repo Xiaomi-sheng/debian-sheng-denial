@@ -109,6 +109,10 @@ iio-sensor-proxy, sheng-sensors, sheng-devauth, alsa-xiaomi-sheng, the firmware
 package and the Xiaomi extras. On Ubuntu it relaxes the fingerprint package's
 `fprintd`/`libgusb` version pins automatically.
 
+If the container's network is slow, download `sheng-debs.tar.gz` with a browser
+first, put it in the current directory, and run the same script — it uses the
+local file instead of downloading again.
+
 Add `--with-firmware` / `--with-kernel` when preparing a flashable tree instead
 of a test container:
 

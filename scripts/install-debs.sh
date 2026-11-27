@@ -46,10 +46,16 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 # ---------------------------------------------------------------- 1. 下载
-info "[1/4] 下载预编译包：$TAG/$ASSET"
-curl -fL --retry 3 --retry-delay 5 \
-  "https://github.com/$REPO/releases/download/$TAG/$ASSET" \
-  -o "$TMP/$ASSET" || die "下载失败，检查网络（或 release 是否已发布）"
+info "[1/4] 获取预编译包：$TAG/$ASSET"
+if [ -s "./$ASSET" ]; then
+  # 网络慢时可以先用浏览器/下载工具把 sheng-debs.tar.gz 放到当前目录
+  info "使用当前目录下已有的 $ASSET"
+  cp "./$ASSET" "$TMP/$ASSET"
+else
+  curl -fL --retry 3 --retry-delay 5 \
+    "https://github.com/$REPO/releases/download/$TAG/$ASSET" \
+    -o "$TMP/$ASSET" || die "下载失败，检查网络（或 release 是否已发布）"
+fi
 tar -xzf "$TMP/$ASSET" -C "$TMP"
 DEBS=("$TMP"/debs/*.deb)
 [ "${#DEBS[@]}" -gt 0 ] || die "压缩包里没有 .deb"
