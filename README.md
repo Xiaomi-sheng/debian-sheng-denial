@@ -15,7 +15,7 @@ Simply start a workflow in your own repository and you will have a ready-to-use 
 
 ## Documentation
 
-This fork targets the [Denial](https://github.com/denialwm/denial) Wayland desktop instead of the stock desktop environments. The **Build RootFS** workflow has a dedicated `Denial` desktop option; integration notes, in both languages:
+This fork targets the [Denial](https://github.com/denialwm/denial) Wayland desktop instead of the stock desktop environments. The **构建根文件系统** (Build RootFS) workflow has a dedicated `Denial 桌面` desktop option; integration notes, in both languages:
 
 - [Denial integration guide (English)](docs/denial-integration.md)
 - [Denial 集成指南（简体中文）](docs/denial-integration.zh-CN.md)
@@ -37,7 +37,7 @@ If Actions are disabled, click `I understand my workflows, go ahead and enable t
 
 ### 2. Run the Build Workflow
 
-In the **Actions** page, select **"Build RootFS"** from the left sidebar, then click the **Run workflow** dropdown on the right.
+In the **Actions** page, select **构建根文件系统** (Build RootFS) from the left sidebar, then click the **Run workflow** dropdown on the right.
 
 You will see a list of configurable options (see [Advanced Configuration](#advanced-configuration) for details).  
 If you leave everything unchanged, the build will proceed with the **default settings**.
@@ -59,27 +59,27 @@ Under the **Artifacts** section, download `rootfs.img` and `boot.img`.
 
 ## Advanced Configuration
 
-When you trigger the **Build RootFS** workflow via `workflow_dispatch`, the following inputs are available:
+When you trigger the **构建根文件系统** (Build RootFS) workflow via `workflow_dispatch`, the following inputs are available. The Run workflow menus, step names and log messages are in Simplified Chinese:
 
 | Parameter | Description | Options | Default |
 |-----------|-------------|---------|---------|
 | **Distribution** | Operating system to build (both arm64). Ubuntu support starts at 24.04 (noble). | `Debian` / `Ubuntu` | `Debian` |
 | **Debian Version** | Debian release number to install. Used only when Distribution = `Debian`. | `13` (trixie) / `14` (forky) | `13` |
 | **Ubuntu Release** | Ubuntu release number to install (arm64 packages come from `ports.ubuntu.com`). Used only when Distribution = `Ubuntu`. | `24.04` (noble) / `24.10` (oracular) / `25.04` (plucky) / `25.10` (questing) / `26.04` (resolute) | `24.04` |
-| **Desktop Environment** | Preinstalled desktop environment. Select `server` for a headless (no GUI) system. | `GNOME` / `KDE Plasma` / `Denial` / `server` | `KDE Plasma` |
-| **Plasma Mobile** | Install `plasma-mobile` instead of `plasma-desktop` when Desktop Environment is `KDE Plasma`. | `true` / `false` | `false` |
+| **Desktop Environment** | Preinstalled desktop environment. Select `无桌面` for a headless (no GUI) system. | `GNOME 桌面` / `KDE 桌面` / `Denial 桌面` / `无桌面` | `KDE 桌面` |
+| **Plasma Mobile** | Install `plasma-mobile` instead of `plasma-desktop` when Desktop Environment is `KDE 桌面`. | `true` / `false` | `false` |
 | **Autologin** | Whether the created user should be logged in automatically. | `true` / `false` | `true` |
 | **Username** | Username for the non-root user. | string | `username` |
 | **Password** | Password for the non-root user and `root`. Leave empty to use the repository secret `ROOTFS_PASSWORD`, then the default `password`. | string | *(empty)* |
 | **Hostname** | System hostname. | string | `xiaomi-sheng` |
 | **System language** | System locale for the generated root filesystem. Selecting `None (C.UTF-8)` keeps the default locale; selecting another option generates that locale together with `en_US.UTF-8` and sets it as the system default. | `None (C.UTF-8)` / `en_US.UTF-8` / `zh_CN.UTF-8` / `zh_TW.UTF-8` / `ja_JP.UTF-8` / `ko_KR.UTF-8` / `de_DE.UTF-8` / `fr_FR.UTF-8` / `es_ES.UTF-8` / `ru_RU.UTF-8` | `None (C.UTF-8)` |
-| **Boot mode** | Determines which partition the OS boots from. See the [Flashing](#flashing-to-your-device) section for details. | `single (userdata)` – use the entire `userdata` partition; <br> `dual (linux)` – use a dedicated `linux` partition (dual boot); <br> `custom` – use a custom partition name (must be specified below) | `dual (linux)` |
-| **Quiet boot** | Enables a quieter boot flow with Plymouth splash support. For prebuilt kernels, this selects the `_plymouth.img` boot image; for custom kernels, it appends `quiet splash plymouth.ignore-serial-consoles fbcon=map:1` to the boot cmdline. This is ignored when Desktop Environment is set to `server`. | `true` / `false` | `true` |
+| **Boot mode** | Determines which partition the OS boots from. See the [Flashing](#flashing-to-your-device) section for details. | `单系统 userdata` – use the entire `userdata` partition; <br> `双系统 linux` – use a dedicated `linux` partition (dual boot); <br> `自定义分区` – use a custom partition name (must be specified below) | `双系统 linux` |
+| **Quiet boot** | Enables a quieter boot flow with Plymouth splash support. For prebuilt kernels, this selects the `_plymouth.img` boot image; for custom kernels, it appends `quiet splash plymouth.ignore-serial-consoles fbcon=map:1` to the boot cmdline. This is ignored when Desktop Environment is set to `无桌面`. | `true` / `false` | `true` |
 | **Custom partition** | Partition name to flash the rootfs to. **Required only when Boot mode is `custom`.** | any partition name (e.g. `debian`) | *(empty)* |
-| **Kernel source** | How to obtain the kernel image. **`prebuilt` is not available when Boot mode is `custom`.** | `prebuilt` – use a prebuilt kernel from [ianchb/sm8550-mainline](https://github.com/ianchb/sm8550-mainline); <br> `custom_build` – clone and compile a custom kernel from the repo specified below | `prebuilt` |
-| **Kernel Repo URL** | Git repository URL for the custom kernel. **Required when kernel source is `custom_build`.** | valid Git URL | `https://github.com/ianchb/sm8550-mainline` |
-| **Kernel Branch** | Branch to checkout from the kernel repository. **Required when kernel source is `custom_build`.** | branch name | `sheng-7.3.4` |
-| **Kernel Config** | Kernel config file name inside the repository. **Required when kernel source is `custom_build`.** | file name (e.g. `sm8550.config`) | `sm8550.config` |
+| **Kernel source** | How to obtain the kernel image. **`预构建内核` is not available when Boot mode is `自定义分区`.** | `预构建内核` – use a prebuilt kernel from [ianchb/sm8550-mainline](https://github.com/ianchb/sm8550-mainline); <br> `自行编译内核` – clone and compile a custom kernel from the repo specified below | `预构建内核` |
+| **Kernel Repo URL** | Git repository URL for the custom kernel. **Required when kernel source is `自行编译内核`.** | valid Git URL | `https://github.com/ianchb/sm8550-mainline` |
+| **Kernel Branch** | Branch to checkout from the kernel repository. **Required when kernel source is `自行编译内核`.** | branch name | `sheng-7.3.4` |
+| **Kernel Config** | Kernel config file name inside the repository. **Required when kernel source is `自行编译内核`.** | file name (e.g. `sm8550.config`) | `sm8550.config` |
 | **Firmware Repo URL** | Git repository URL for device firmware files. | valid Git URL | `https://github.com/ianchb/sheng-firmware` |
 | **Firmware Branch** | Branch to checkout from the firmware repository. | branch name | `master` |
 
@@ -90,8 +90,8 @@ When you trigger the **Build RootFS** workflow via `workflow_dispatch`, the foll
 > - **Ubuntu builds**: `Distribution = Ubuntu` builds any Ubuntu 24.04+ arm64 release from `http://ports.ubuntu.com/ubuntu-ports/`. Denial is validated by upstream only on Ubuntu 24.04 (noble); newer Ubuntu releases reuse the `noble` Denial packages as a best effort. Ubuntu has no `firefox-esr` (Firefox is a snap), so GNOME/KDE images come without a preinstalled browser, and occasional terminal renames (`kgx`/`ptyxis`) or missing optional KDE apps are handled with fallbacks and warnings. On Ubuntu the GNOME choice installs Ubuntu's own `ubuntu-desktop-minimal` metapackage (`ubuntu-session`, extensions, PipeWire, Xorg), and GDM autologin is written to `/etc/gdm3/custom.conf` with the session pinned through AccountsService.  
 > - **KDE on Ubuntu 24.04** is Plasma 5.27; Debian 13 ships Plasma 6.x.  
 > - `qbootctl` (A/B slot switcher) is installed when the release packages it; otherwise the build warns and slot switching must be done from a PC (`fastboot`) or TWRP.  
-> - If you choose **Boot mode = `custom`**, you **must** fill in the **Custom partition** field.  
-> - If you choose **Kernel source = `custom_build`**, you **must** provide the **Kernel Repo URL**, **Kernel Branch**, and **Kernel Config** fields.  
+> - If you choose **Boot mode = `自定义分区`**, you **must** fill in the **Custom partition** field.  
+> - If you choose **Kernel source = `自行编译内核`**, you **must** provide the **Kernel Repo URL**, **Kernel Branch**, and **Kernel Config** fields.  
 ---
 
 ## About Some Packages...

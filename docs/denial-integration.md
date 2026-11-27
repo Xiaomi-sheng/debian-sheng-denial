@@ -5,7 +5,7 @@
 > **Document status v2 (2026-11-26)**: this repository is a fork of
 > [`ianchb/debian-sheng`](https://github.com/ianchb/debian-sheng) that adds Denial
 > integration. `.github/workflows/rootfs.yml` and `rootfs-lite.yml` **now include
-> a `Denial` desktop option** (path B has landed); path A (install after flashing)
+> a `Denial 桌面` desktop option** (path B has landed); path A (install after flashing)
 > still works for existing images and single-device validation.
 
 ---
@@ -34,7 +34,7 @@
 | GPU userspace | Mesa freedreno for SM8550 / Adreno 740 | Debian trixie ships Mesa 25.0.7 |
 | Device firmware | GPU / DSP / Wi-Fi firmware | Installed by the `firmware-xiaomi-sheng` package during the build |
 | glibc | Denial requires `libc6 >= 2.39` | trixie has glibc 2.41 |
-| Debian release | Denial is validated on **Debian 13 (trixie)**; forky/sid are best-effort and unvalidated | Use `trixie` |
+| Debian release | Denial is validated on **Debian 13 (trixie)**; forky/sid are best-effort and unvalidated | Choose Debian version `13` |
 | Session environment | systemd + a logind-compatible seat + user D-Bus | Standard on Debian |
 | Panel | 12.4-inch 3048×2032; adjust scale in Denial Settings after first boot | — |
 
@@ -45,7 +45,7 @@
 
 ## 2. How this repository builds images today
 
-`Build RootFS` runs entirely on **GitHub Actions**:
+`构建根文件系统` (Build RootFS) runs entirely on **GitHub Actions**:
 
 ```
 build-kernel ─┐
@@ -61,11 +61,11 @@ Key steps of `build-rootfs` (`.github/workflows/rootfs.yml`):
 1. `debootstrap --arch=arm64 --components=main,contrib,non-free-firmware trixie http://deb.debian.org/debian/`;
 2. bind `/dev`, `/proc`, `/sys` and install base packages (systemd, NetworkManager, dbus, …);
 3. install the six build-job artifacts and the in-repo `.deb` packages (kernel, firmware, ALSA, sensors, devauth, charger, pen, fingerprint, …);
-4. install GNOME, KDE Plasma, or nothing (`server`) according to the `desktop` input;
+4. install GNOME, KDE, Denial, or nothing according to the `desktop` input;
 5. create the user, password, locale, hostname;
 6. configure the display manager (GDM / SDDM) and autologin;
 7. write `fstab`, the Wi-Fi MAC setup, clean apt, unmount;
-8. create the 10 GiB ext4 `rootfs.img` (fixed UUID) and, for `custom_build`, `boot.img`;
+8. create the 10 GiB ext4 `rootfs.img` (fixed UUID) and, for `自行编译内核`, `boot.img`;
 9. upload artifacts `rootfs-…` / `boot-…`, kept for 14 days.
 
 **Why online builds**: debootstrap plus arm64 kernel compilation is slow and
@@ -78,8 +78,8 @@ arm64 chroot natively, and its artifacts can be downloaded and flashed directly.
 
 | Path | What it does | When to use |
 | --- | --- | --- |
-| **A. Install after flashing** | Flash a `server`/`GNOME` image, boot, `apt install denial` | Fastest way to validate GPU/DRM/session on one device |
-| **B. Integrate in CI (recommended)** | Add a `Denial` desktop option plus install/session steps to `rootfs.yml`; Actions ships an image with Denial | "Build once, ship it" — the online-build path |
+| **A. Install after flashing** | Flash a `无桌面` or `GNOME 桌面` image, boot, `apt install denial` | Fastest way to validate GPU/DRM/session on one device |
+| **B. Integrate in CI (recommended)** | Add a `Denial 桌面` desktop option plus install/session steps to `rootfs.yml`; Actions ships an image with Denial | "Build once, ship it" — the online-build path |
 
 > Building a rootfs yourself on the host or in a container is not recommended (see §7).
 
@@ -200,18 +200,18 @@ future upgrades and rollbacks.
         description: 'Desktop Environment (server = no DE)'
         type: choice
         options:
-          - GNOME
-          - KDE Plasma
-          - Denial          # new
-          - server
-        default: 'KDE Plasma'
+          - 'GNOME 桌面'
+          - 'KDE 桌面'
+          - 'Denial 桌面'          # new
+          - '无桌面'
+        default: 'KDE 桌面'
 ```
 
 ### 5.2 Install and session steps (added to the `# Desktop Environment` section)
 
 ```yaml
-      - name: "Install Denial"
-        if: ${{ inputs.desktop == 'Denial' }}
+      - name: "安装 Denial 桌面"
+        if: ${{ inputs.desktop == 'Denial 桌面' }}
         run: |
           sudo chroot "$ROOTFS_MOUNT" bash -c '
             set -euo pipefail
@@ -224,10 +224,10 @@ future upgrades and rollbacks.
             apt-get update
             apt-get install -y denial
           '
-          echo "✓ Denial installed"
+          echo "✓ Denial 桌面已安装"
 
-      - name: "Configure Denial Session"
-        if: ${{ inputs.desktop == 'Denial' }}
+      - name: "配置 Denial 会话"
+        if: ${{ inputs.desktop == 'Denial 桌面' }}
         run: |
           sudo chroot "$ROOTFS_MOUNT" apt-get install -y sddm
           sudo chroot "$ROOTFS_MOUNT" usermod -aG video,render,input,audio,plugdev \
@@ -239,7 +239,7 @@ future upgrades and rollbacks.
           fi
           sudo chroot "$ROOTFS_MOUNT" systemctl enable sddm
           sudo chroot "$ROOTFS_MOUNT" systemctl set-default graphical.target
-          echo "✓ Denial session configured (SDDM, Session=denial)"
+          echo "✓ Denial 会话已配置（SDDM，Session=denial）"
 ```
 
 > With Debian forky (`Debian Version = 14`) the Denial repository still points at the `trixie`
@@ -248,23 +248,23 @@ future upgrades and rollbacks.
 > and friends, so `apt` resolves them.
 >
 > For GDM instead: install `gdm3` and follow §4.4; the `quiet_boot` condition
-> (`desktop != 'server'`) also applies to Denial, so Plymouth is installed normally.
+> (`desktop != '无桌面'`) also applies to Denial, so Plymouth is installed normally.
 
 ### 5.3 Trigger the online build
 
-Actions → **Build RootFS** → Run workflow. Suggested inputs:
+Actions → **构建根文件系统** → Run workflow. Suggested inputs (the UI is Simplified Chinese; the option values below are the exact dropdown strings):
 
 | Input | Value | Why |
 | --- | --- | --- |
 | Distribution | `Debian` (or `Ubuntu`) | Denial is validated on Debian 13 / Ubuntu 24.04 |
 | Debian Version | `13` | Denial is validated; `14` (forky) is not |
-| Desktop Environment | `Denial` | Built in; existing images can still use `server` + path A |
+| Desktop Environment | `Denial 桌面` | Built in; existing images can still use `无桌面` + path A |
 | Autologin | `true` | Tablet boots straight into Denial |
 | Username / Hostname | your choice | The username is written into autologin |
 | Password | your choice, or empty | Empty falls back to the `ROOTFS_PASSWORD` secret, then to `password`; prefer the secret on public repos |
-| Boot mode | `dual (linux)` | Keeps the existing OS; `single` wipes userdata |
+| Boot mode | `双系统 linux` | Keeps the existing OS; `单系统` wipes userdata |
 | Quiet boot | `true` | Plymouth splash |
-| Kernel Source | `prebuilt` | Fastest; `custom_build` compiles the kernel first |
+| Kernel Source | `预构建内核` | Fastest; `自行编译内核` compiles the kernel first |
 
 Artifacts: `rootfs-trixie-Denial-linux.img`, `boot-trixie-Denial-linux.img`
 (kept 14 days).
