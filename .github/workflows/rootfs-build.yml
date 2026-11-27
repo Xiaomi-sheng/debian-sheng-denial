@@ -332,7 +332,26 @@ jobs:
 
       - name: "克隆源码 / Clone Source"
         run: |
-          git clone https://codeberg.org/DylanVanAssche/libssc.git source
+          set -u
+          ok=0
+          for attempt in 1 2 3; do
+            rm -rf source
+            if git clone --depth 1 https://codeberg.org/DylanVanAssche/libssc.git source; then
+              ok=1
+              break
+            fi
+            echo "::warning::libssc 克隆失败（codeberg，第 ${attempt} 次）/ libssc clone attempt ${attempt} failed"
+            sleep 15
+          done
+          if [[ "$ok" != "1" ]]; then
+            # codeberg 出过 503 导致整个构建失败；Debian 源码包有同一个 0.3.0 版本，
+            # 直接用它兜底，补丁同样能打上。
+            echo "::warning::codeberg 不可用，改用 Debian 源码包 libssc 0.3.0 / codeberg unavailable, using the Debian 0.3.0 source tarball"
+            curl -fsSL --retry 3 -o /tmp/libssc.tar.gz \
+              https://deb.debian.org/debian/pool/main/libs/libssc/libssc_0.3.0.orig.tar.gz
+            mkdir -p source
+            tar -xzf /tmp/libssc.tar.gz -C source --strip-components=1
+          fi
           echo "✓ 源码已克隆 / Source cloned"
 
       - name: "应用补丁 / Apply Patch"
