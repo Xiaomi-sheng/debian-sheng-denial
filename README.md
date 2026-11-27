@@ -91,27 +91,30 @@ The Debian and Ubuntu builds are **separate workflows with separate menus**, so 
 > - `qbootctl` (A/B slot switcher) is installed when the release packages it; otherwise the build warns and slot switching must be done from a PC (`fastboot`) or TWRP.  
 > - If you choose **Boot mode = `自定义分区 / Custom partition`**, you **must** fill in the **Custom partition** field.  
 > - If you choose **Kernel source = `自行编译内核 / Build from source`**, you **must** provide the **Kernel Repo URL**, **Kernel Branch**, and **Kernel Config** fields.  
-### Local build on the phone (Droidspaces)
+### Install the prebuilt packages in a Droidspaces container (no build)
 
-If you prefer building on the phone instead of GitHub Actions: import an Ubuntu
-24.04 rootfs into Droidspaces (container tab → `+` → official rootfs repository
-→ Ubuntu 24.04), then inside that container:
+The simplest path, no compilation:
+
+1. In Droidspaces: container tab → `+` → official rootfs repository → **Ubuntu 24.04** → import and start it.
+2. Inside that container run one command:
 
 ```sh
-git clone https://github.com/Xiaomi-sheng/debian-sheng-denial
-cd debian-sheng-denial
-./scripts/local-build.sh check     # 环境检查
-./scripts/local-build.sh debs      # 下载 + 编译全部设备包（缓存到 local-cache/）
-./scripts/local-build.sh install   # 装进当前 Ubuntu 24.04 容器（测试用）
+curl -fsSL https://raw.githubusercontent.com/Xiaomi-sheng/debian-sheng-denial/master/scripts/install-debs.sh | bash
 ```
 
-The script caches the prebuilt kernel / Xiaomi packages in `local-cache/` and
-builds fastrpc, libssc, iio-sensor-proxy, sheng-sensors, sheng-devauth,
-alsa-xiaomi-sheng and the firmware package locally, so repeat runs reuse the
-cache. It also relaxes the fingerprint package's `fprintd`/`libgusb` pins on
-Ubuntu automatically. Use `WITH_KERNEL=1` / `WITH_FIRMWARE=1` to include the
-kernel/firmware packages in `install` (useful when preparing a flashable tree,
-not for container testing).
+The script downloads `sheng-debs.tar.gz` from the
+[`debs-latest` release](https://github.com/Xiaomi-sheng/debian-sheng-denial/releases/tag/debs-latest)
+and installs every prebuilt device package with apt: fastrpc, libssc,
+iio-sensor-proxy, sheng-sensors, sheng-devauth, alsa-xiaomi-sheng, the firmware
+package and the Xiaomi extras. On Ubuntu it relaxes the fingerprint package's
+`fprintd`/`libgusb` version pins automatically.
+
+Add `--with-firmware` / `--with-kernel` when preparing a flashable tree instead
+of a test container:
+
+```sh
+./scripts/install-debs.sh --with-firmware --with-kernel
+```
 
 ## About Some Packages
 
