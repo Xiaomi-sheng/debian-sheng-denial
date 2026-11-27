@@ -1110,15 +1110,28 @@ jobs:
           # and firmware packages uninstalled as well.
           sudo chroot "$ROOTFS_MOUNT" bash -c '
             set -u
+            failed=""
             for deb in /tmp/*.deb; do
               base="$(basename "$deb")"
               if apt-get install -y "$deb" >/tmp/deb-install.log 2>&1; then
                 echo "  ✓ ${base}"
               else
-                echo "::warning::${base} could not be installed on this release; skipping it"
-                sed -n "/^The following packages have unmet dependencies/,/^E:/p" /tmp/deb-install.log | head -8
+                failed="${failed} ${deb}"
+                echo "::warning::${base} still needs another package from this list; retrying in a second pass"
               fi
             done
+            if [[ -n "${failed}" ]]; then
+              echo "  Second pass for packages that depend on an earlier entry"
+              for deb in ${failed}; do
+                base="$(basename "$deb")"
+                if apt-get install -y "$deb" >/tmp/deb-install.log 2>&1; then
+                  echo "  ✓ ${base} (second pass)"
+                else
+                  echo "::warning::${base} could not be installed on this release; skipping it"
+                  sed -n "/^The following packages have unmet dependencies/,/^E:/p" /tmp/deb-install.log | head -8
+                fi
+              done
+            fi
             apt-get install -f -y >/dev/null 2>&1 || true
             rm -f /tmp/*.deb /tmp/deb-install.log
           '
@@ -1230,19 +1243,29 @@ jobs:
         if: ${{ inputs.desktop == 'GNOME' }}
         run: |
           sudo chroot "$ROOTFS_MOUNT" apt-get update
-          sudo chroot "$ROOTFS_MOUNT" apt-get install -y \
-            gnome-shell gnome-session gdm3 gnome-control-center
           # Terminal and browser differ between distributions and releases:
           # Ubuntu has no firefox-esr (Firefox is a snap) and newer releases may
           # replace gnome-terminal with kgx/ptyxis, so those are best effort.
-          sudo chroot "$ROOTFS_MOUNT" apt-get install -y gnome-terminal \
-            || sudo chroot "$ROOTFS_MOUNT" apt-get install -y kgx \
-            || echo "::warning::no GNOME terminal package could be installed."
-          if [[ "${{ inputs.distro }}" == "Debian" ]]; then
+          if [[ "${{ inputs.distro }}" == "Ubuntu" ]]; then
+            # Ubuntu's own minimal GNOME metapackage. It brings ubuntu-session,
+            # gdm3, gnome-shell, the Ubuntu shell extensions, settings, PipeWire
+            # and Xorg; --no-install-recommends skips snapd, ubuntu-report,
+            # printing drivers and the browser while keeping a complete session.
+            sudo chroot "$ROOTFS_MOUNT" apt-get install -y --no-install-recommends \
+              ubuntu-desktop-minimal \
+              || { echo "Error: ubuntu-desktop-minimal could not be installed"; exit 1; }
+            sudo chroot "$ROOTFS_MOUNT" apt-get install -y gnome-terminal \
+              || sudo chroot "$ROOTFS_MOUNT" apt-get install -y kgx \
+              || echo "::warning::no GNOME terminal package could be installed."
+            echo "::notice::Ubuntu ships Firefox as a snap; no browser is preinstalled in this image."
+          else
+            sudo chroot "$ROOTFS_MOUNT" apt-get install -y \
+              gnome-shell gnome-session gdm3 gnome-control-center
+            sudo chroot "$ROOTFS_MOUNT" apt-get install -y gnome-terminal \
+              || sudo chroot "$ROOTFS_MOUNT" apt-get install -y kgx \
+              || echo "::warning::no GNOME terminal package could be installed."
             sudo chroot "$ROOTFS_MOUNT" apt-get install -y firefox-esr \
               || echo "::warning::firefox-esr is unavailable; install a browser manually."
-          else
-            echo "::notice::Ubuntu ships Firefox as a snap; no browser is preinstalled in this image."
           fi
           echo "✓ GNOME installed"
 
@@ -1333,15 +1356,32 @@ jobs:
       - name: "Configure GDM with Autologin"
         if: ${{ inputs.desktop == 'GNOME' && inputs.autologin }}
         run: |
+          # Debian gdm3 reads /etc/gdm3/daemon.conf, Ubuntu reads custom.conf.
+          # Without the right file autologin is silently ignored.
+          if [[ "${{ inputs.distro }}" == "Ubuntu" ]]; then
+            GDM_CONF="$ROOTFS_MOUNT/etc/gdm3/custom.conf"
+            SESSION_NAME="ubuntu"
+          else
+            GDM_CONF="$ROOTFS_MOUNT/etc/gdm3/daemon.conf"
+            SESSION_NAME="gnome"
+          fi
           sudo mkdir -p "$ROOTFS_MOUNT/etc/gdm3"
-          sudo tee "$ROOTFS_MOUNT/etc/gdm3/daemon.conf" << EOF
+          sudo tee "$GDM_CONF" << EOF
           [daemon]
           AutomaticLoginEnable=true
           AutomaticLogin=${{ inputs.username }}
           EOF
+          # Pin the session GDM starts for the autologin user, so the greeter
+          # does not depend on which session files happen to be installed.
+          sudo mkdir -p "$ROOTFS_MOUNT/var/lib/AccountsService/users"
+          sudo tee "$ROOTFS_MOUNT/var/lib/AccountsService/users/${{ inputs.username }}" << EOF
+          [User]
+          XSession=$SESSION_NAME
+          SystemAccount=false
+          EOF
           sudo chroot "$ROOTFS_MOUNT" systemctl enable gdm3
           sudo chroot "$ROOTFS_MOUNT" systemctl set-default graphical.target
-          echo "✓ GDM autologin configured for ${{ inputs.username }}"
+          echo "✓ GDM autologin configured for ${{ inputs.username }} ($SESSION_NAME)"
 
       - name: "Configure SDDM with Autologin"
         if: ${{ inputs.desktop == 'KDE Plasma' && inputs.autologin }}
