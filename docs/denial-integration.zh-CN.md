@@ -2,7 +2,7 @@
 
 简体中文 | [English](denial-integration.md)
 
-> **文档状态 v2（2026-11-26）**：本仓库是从 [`ianchb/debian-sheng`](https://github.com/ianchb/debian-sheng) fork 出来的 Denial 集成分支。`.github/workflows/rootfs.yml` 与 `rootfs-lite.yml` **已内置 `Denial 桌面` 选项**（路线 B 已落地）；路线 A（刷好后手动装）仍可用于旧镜像或单机验证。
+> **文档状态 v2（2026-11-26）**：本仓库是从 [`ianchb/debian-sheng`](https://github.com/ianchb/debian-sheng) fork 出来的 Denial 集成分支。`.github/workflows/rootfs.yml` 与 `rootfs-lite.yml` **已内置 `Denial 桌面 / Denial Desktop` 选项**（路线 B 已落地）；路线 A（刷好后手动装）仍可用于旧镜像或单机验证。
 
 ---
 
@@ -40,7 +40,7 @@
 
 ## 2. 构建链：现在这套仓库是怎么出货的
 
-`构建根文件系统`（Build RootFS）工作流在 **GitHub Actions** 上跑，整条链都在线上：
+`构建根文件系统 / Build RootFS`工作流在 **GitHub Actions** 上跑，整条链都在线上：
 
 ```
 build-kernel ─┐
@@ -60,7 +60,7 @@ build-sheng-devauth ───┘
 5. 建用户、设密码、locale、hostname；
 6. 配显示管理器（GDM / SDDM）与自动登录；
 7. 写 `fstab`、Wi-Fi MAC，清 apt 缓存，卸载；
-8. 生成 10 GiB ext4 `rootfs.img`（固定 UUID）和 `boot.img`（选「自行编译内核」时才生成）；
+8. 生成 10 GiB ext4 `rootfs.img`（固定 UUID）和 `boot.img`（选「自行编译内核 / Build from source」时才生成）；
 9. 上传 artifact：`rootfs-…` / `boot-…`，保留 14 天。
 
 **为什么坚持线上构建**：debootstrap 和 arm64 内核编译在手机 / proot 里既慢又不可复现；GitHub 的 arm64 runner 原生跑 arm64 chroot，产物出来就能直接下载、刷入。
@@ -71,8 +71,8 @@ build-sheng-devauth ───┘
 
 | 路线 | 做什么 | 适用场景 |
 | --- | --- | --- |
-| **A. 刷机后手动安装** | 先刷一套「无桌面」或「GNOME 桌面」镜像，开机联网后 `apt install denial` | 最快验证 GPU/DRM/会话是否正常；只改一个系统 |
-| **B. 线上构建时集成（推荐）** | 在 `rootfs.yml` 加 `Denial 桌面` 选项和安装/会话步骤，Actions 直接产出带 Denial 的镜像 | 想「一次构建、直接出货」，符合线上构建要求 |
+| **A. 刷机后手动安装** | 先刷一套「无桌面 / Headless」或「GNOME 桌面 / GNOME Desktop」镜像，开机联网后 `apt install denial` | 最快验证 GPU/DRM/会话是否正常；只改一个系统 |
+| **B. 线上构建时集成（推荐）** | 在 `rootfs.yml` 加 `Denial 桌面 / Denial Desktop` 选项和安装/会话步骤，Actions 直接产出带 Denial 的镜像 | 想「一次构建、直接出货」，符合线上构建要求 |
 
 > 不建议在本机或容器里自己 `debootstrap`（见第 7 节）。
 
@@ -185,18 +185,18 @@ sudo usermod -aG video,render,input,audio,plugdev username
         description: 'Desktop Environment (server = no DE)'
         type: choice
         options:
-          - 'GNOME 桌面'
-          - 'KDE 桌面'
-          - 'Denial 桌面'          # 新增
-          - '无桌面'
-        default: 'KDE 桌面'
+          - 'GNOME 桌面 / GNOME Desktop'
+          - 'KDE 桌面 / KDE Desktop'
+          - 'Denial 桌面 / Denial Desktop'          # 新增
+          - '无桌面 / Headless'
+        default: 'KDE 桌面 / KDE Desktop'
 ```
 
 ### 5.2 安装与会话步骤（已在 `# Desktop Environment` 段落地）
 
 ```yaml
-      - name: "安装 Denial 桌面"
-        if: ${{ inputs.desktop == 'Denial 桌面' }}
+      - name: "安装 Denial 桌面 / Install Denial"
+        if: ${{ inputs.desktop == 'Denial 桌面 / Denial Desktop' }}
         run: |
           sudo chroot "$ROOTFS_MOUNT" bash -c '
             set -euo pipefail
@@ -209,10 +209,10 @@ sudo usermod -aG video,render,input,audio,plugdev username
             apt-get update
             apt-get install -y denial
           '
-          echo "✓ Denial 桌面已安装"
+          echo "✓ Denial 桌面已安装 / Denial installed"
 
-      - name: "配置 Denial 会话"
-        if: ${{ inputs.desktop == 'Denial 桌面' }}
+      - name: "配置 Denial 会话 / Configure Denial Session"
+        if: ${{ inputs.desktop == 'Denial 桌面 / Denial Desktop' }}
         run: |
           sudo chroot "$ROOTFS_MOUNT" apt-get install -y sddm
           sudo chroot "$ROOTFS_MOUNT" usermod -aG video,render,input,audio,plugdev \
@@ -224,28 +224,28 @@ sudo usermod -aG video,render,input,audio,plugdev username
           fi
           sudo chroot "$ROOTFS_MOUNT" systemctl enable sddm
           sudo chroot "$ROOTFS_MOUNT" systemctl set-default graphical.target
-          echo "✓ Denial 会话已配置（SDDM，Session=denial）"
+          echo "✓ Denial 会话已配置（SDDM，Session=denial） / Denial session configured (SDDM, Session=denial)"
 ```
 
 > 注意：Debian forky（`Debian Version = 14`）时 Denial 源仍指向 `trixie` suite（上游说明为尽力支持）。denial 包 `Depends` 里已包含 `libegl1/libgbm1/libgles2/libwayland-client0/libseat1/xwayland` 等，`apt` 会自动补齐。
 >
-> 如果改用 GDM，别走 `sddm` 分支：装 `gdm3`，按 4.4 节写 `/etc/gdm3/daemon.conf` 和 `/var/lib/AccountsService/users/<用户>`；`quiet_boot` 逻辑（`desktop != '无桌面'`）对 Denial 同样生效，Plymouth 会正常安装。
+> 如果改用 GDM，别走 `sddm` 分支：装 `gdm3`，按 4.4 节写 `/etc/gdm3/daemon.conf` 和 `/var/lib/AccountsService/users/<用户>`；`quiet_boot` 逻辑（`desktop != '无桌面 / Headless'`）对 Denial 同样生效，Plymouth 会正常安装。
 
 ### 5.3 触发线上构建
 
-Actions → **构建根文件系统** → Run workflow，建议参数（界面为中文，下表选项值为下拉框原文）：
+Actions → **构建根文件系统 / Build RootFS** → Run workflow，建议参数（界面为中文，下表选项值为下拉框原文）：
 
 | 参数 | 建议值 | 说明 |
 | --- | --- | --- |
 | Distribution | `Debian`（或 `Ubuntu`） | Denial 上游验证 Debian 13 / Ubuntu 24.04 |
 | Debian Version | `13` | Denial 已验证；`14`（forky）未验证 |
-| Desktop Environment | `Denial 桌面` | 已内置；旧镜像仍可用「无桌面」+ 路线 A |
+| Desktop Environment | `Denial 桌面 / Denial Desktop` | 已内置；旧镜像仍可用「无桌面 / Headless」+ 路线 A |
 | Autologin | `true` | 平板直进 Denial |
 | Username / Hostname | 自定 | 用户名会写进 autologin |
 | Password | 自定或留空 | 留空时用仓库 secret `ROOTFS_PASSWORD`，再退默认 `password`；公开仓库优先用 secret |
-| Boot mode | `双系统 linux` | 保留原系统；`单系统` 会清空 userdata |
+| Boot mode | `双系统 linux / Dual linux` | 保留原系统；`单系统` 会清空 userdata |
 | Quiet boot | `true` | Plymouth 静默开机 |
-| Kernel Source | `预构建内核` | 最快；`自行编译内核` 会先编内核，耗时更长 |
+| Kernel Source | `预构建内核 / Prebuilt kernel` | 最快；`自行编译内核 / Build from source` 会先编内核，耗时更长 |
 
 产物命名：`rootfs-trixie-Denial-linux.img`、`boot-trixie-Denial-linux.img`（保留 14 天）。
 
